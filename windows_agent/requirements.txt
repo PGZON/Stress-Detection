@@ -1,0 +1,10 @@
+# StressSense Windows Agent requirements
+requests>=2.28.2
+numpy>=1.23.5
+opencv-python>=4.7.0
+deepface>=0.0.79
+pywin32>=305
+PyQt5>=5.15.9
+PyQtChart>=5.15.6
+# For building executable
+pyinstaller>=5.9.0

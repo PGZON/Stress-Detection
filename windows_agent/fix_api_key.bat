@@ -1,0 +1,3 @@
+@echo off
+echo Running API Key Fix Utility...
+python -m windows_agent.fix_api_key
