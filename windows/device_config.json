@@ -1,0 +1,12 @@
+{
+  "device_id": "device-b6f08f34",
+  "api_key": "4aa24833bd2da363a55eac6437003651b8278e88f42e7ae4a3bd545cd4512c7d",
+  "employee_id": "111",
+  "device_name": "User's Device",
+  "device_number": "66115050701458",
+  "username": null,
+  "user_id": "92939c1c-e248-4da2-9fdc-e8e8a9469ad5",
+  "role": "employee",
+  "registered_at": "2025-09-20T14:50:58.207826",
+  "backend_url": "http://localhost:8000"
+}

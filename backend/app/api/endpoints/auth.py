@@ -69,16 +69,25 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     }
 
 @router.post("/register", response_model=User)
-async def register_user(user_data: UserCreate, current_user: User = Depends(get_current_manager)):
+async def register_user(user_data: UserCreate):
     """
-    Create a new user account (manager only)
+    Create a new user account (self-registration for employees, manager required for other roles)
     """
+    # Check if trying to register a non-employee role without manager auth
+    if user_data.role != "employee":
+        # For non-employee roles, we would need manager authentication
+        # For now, we'll allow employee self-registration only
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only employees can self-register. Contact administrator for other roles."
+        )
+
     existing_user = get_user_by_username(user_data.username)
-    
+
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Username already registered"
         )
-    
+
     return create_user(user_data)

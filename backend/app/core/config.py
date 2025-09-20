@@ -6,7 +6,7 @@ load_dotenv()
 
 # Move EMOTION_STRESS_MAP outside the Settings class (already done)
 EMOTION_STRESS_MAP = {
-    "happy": {"level": "Low", "min_confidence": 25},
+    "happy": {"level": "Low", "min_confidence": 20},  # Temporarily lowered for testing
     "neutral": {"level": "Low", "min_confidence": 25},
     "sad": {"level": "Medium", "min_confidence": 30},
     "angry": {"level": "Medium", "min_confidence": 30},

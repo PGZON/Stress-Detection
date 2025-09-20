@@ -26,6 +26,7 @@ try:
     employees_collection.create_index("department")
     
     devices_collection.create_index("device_id", unique=True)
+    devices_collection.create_index("device_number", unique=True)
     devices_collection.create_index("employee_id")
     devices_collection.create_index("active")
     

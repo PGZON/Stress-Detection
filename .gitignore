@@ -12,4 +12,7 @@ backend/app/core/security/__pycache__
 backend/app/db/__pycache__
 backend/app/schemas/__pycache__
 backend/app/models/__pycache__
+data/train
+data/test
 
+backend/ModelTraining/venv/

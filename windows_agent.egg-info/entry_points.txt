@@ -1,2 +1,0 @@
-[console_scripts]
-stresssense = windows_agent.__main__:main

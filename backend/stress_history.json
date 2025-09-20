@@ -1874,5 +1874,579 @@
       "face_ratio": 0.173701171875,
       "center_distance": 0.3478707593527711
     }
+  },
+  {
+    "timestamp": "2025-08-22T18:08:53.090Z",
+    "emotion": "fear",
+    "stress_level": "High",
+    "confidence": 50.565141439437866,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 121.53403122130395,
+      "face_ratio": 0.088623046875,
+      "center_distance": 0.12785821861280672
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:09:14.650Z",
+    "emotion": "happy",
+    "stress_level": "Low",
+    "confidence": 97.34005331993103,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 145.97098611605554,
+      "face_ratio": 0.14630208333333333,
+      "center_distance": 0.07107991699977177
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:09:26.340Z",
+    "emotion": "neutral",
+    "stress_level": "Low",
+    "confidence": 99.85028505325317,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 120.70539946814661,
+      "face_ratio": 0.1126171875,
+      "center_distance": 0.17354382376610558
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:09:29.523Z",
+    "emotion": "neutral",
+    "stress_level": "Low",
+    "confidence": 99.95018243789673,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 118.86069818874051,
+      "face_ratio": 0.116279296875,
+      "center_distance": 0.17739727838763558
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:09:33.396Z",
+    "emotion": "neutral",
+    "stress_level": "Low",
+    "confidence": 97.77239547803374,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 120.9041760856633,
+      "face_ratio": 0.13680013020833334,
+      "center_distance": 0.1476103139892567
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:09:43.161Z",
+    "emotion": "neutral",
+    "stress_level": "Low",
+    "confidence": 97.62065410614014,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 116.24104489795918,
+      "face_ratio": 0.09969075520833333,
+      "center_distance": 0.16296029393743008
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:09:48.121Z",
+    "emotion": "happy",
+    "stress_level": "Low",
+    "confidence": 99.96818899918729,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 80.81131276039828,
+      "face_ratio": 0.04609700520833333,
+      "center_distance": 0.45134535881186033
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:09:55.949Z",
+    "emotion": "neutral",
+    "stress_level": "Low",
+    "confidence": 99.92740750312805,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 128.76466049382717,
+      "face_ratio": 0.151875,
+      "center_distance": 0.1419765299950821
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:10:00.224Z",
+    "emotion": "neutral",
+    "stress_level": "Low",
+    "confidence": 99.29171800613403,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 130.53250618351464,
+      "face_ratio": 0.16187825520833332,
+      "center_distance": 0.07384132836815445
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:10:04.239Z",
+    "emotion": "neutral",
+    "stress_level": "Low",
+    "confidence": 99.69701169115375,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 125.07802684652516,
+      "face_ratio": 0.147685546875,
+      "center_distance": 0.09875012361542895
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:10:07.250Z",
+    "emotion": "neutral",
+    "stress_level": "Low",
+    "confidence": 99.88795518207283,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 129.56243161350054,
+      "face_ratio": 0.15470052083333333,
+      "center_distance": 0.06512083120054596
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:10:11.623Z",
+    "emotion": "sad",
+    "stress_level": "Medium",
+    "confidence": 83.75056385993958,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 82.04636800313695,
+      "face_ratio": 0.03320638020833333,
+      "center_distance": 0.04448858823908604
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:10:20.910Z",
+    "emotion": "neutral",
+    "stress_level": "Low",
+    "confidence": 99.65767858372203,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 115.91322115885824,
+      "face_ratio": 0.156123046875,
+      "center_distance": 0.09141218522990764
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:10:23.736Z",
+    "emotion": "happy",
+    "stress_level": "Low",
+    "confidence": 82.14609622955322,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 118.9905407342192,
+      "face_ratio": 0.15898763020833334,
+      "center_distance": 0.0973557877789631
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:10:30.903Z",
+    "emotion": "neutral",
+    "stress_level": "Low",
+    "confidence": 98.83191571616122,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 122.40557545480253,
+      "face_ratio": 0.13813802083333335,
+      "center_distance": 0.05160457037925786
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:10:40.176Z",
+    "emotion": "neutral",
+    "stress_level": "Low",
+    "confidence": 95.29298543930054,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 115.08227848101266,
+      "face_ratio": 0.08126302083333334,
+      "center_distance": 0.18848122880305906
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:10:42.912Z",
+    "emotion": "neutral",
+    "stress_level": "Low",
+    "confidence": 99.94571805000305,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 123.89772853185596,
+      "face_ratio": 0.11751302083333333,
+      "center_distance": 0.0650541474519069
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:10:44.636Z",
+    "emotion": "neutral",
+    "stress_level": "Low",
+    "confidence": 99.78188276290894,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 124.44247528961633,
+      "face_ratio": 0.12251302083333333,
+      "center_distance": 0.07540580320008533
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:10:53.985Z",
+    "emotion": "happy",
+    "stress_level": "Low",
+    "confidence": 44.19170022010803,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 115.04504236658244,
+      "face_ratio": 0.15328450520833334,
+      "center_distance": 0.18302845892148467
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:11:14.848Z",
+    "emotion": "neutral",
+    "stress_level": "Low",
+    "confidence": 96.61345522243319,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 104.92365714285714,
+      "face_ratio": 0.09969075520833333,
+      "center_distance": 0.07418219128834277
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:11:16.982Z",
+    "emotion": "neutral",
+    "stress_level": "Low",
+    "confidence": 97.15431962557797,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 111.16645627583476,
+      "face_ratio": 0.131513671875,
+      "center_distance": 0.0989970456077478
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:12:08.412Z",
+    "emotion": "neutral",
+    "stress_level": "Low",
+    "confidence": 98.95965456962585,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 115.8656631960163,
+      "face_ratio": 0.11505208333333333,
+      "center_distance": 0.1514720878669657
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:12:10.512Z",
+    "emotion": "neutral",
+    "stress_level": "Low",
+    "confidence": 88.3635931231733,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 113.02480055497746,
+      "face_ratio": 0.1126171875,
+      "center_distance": 0.18221724671391565
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:12:49.112Z",
+    "emotion": "neutral",
+    "stress_level": "Low",
+    "confidence": 99.57048296928406,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 118.22225921521998,
+      "face_ratio": 0.06844075520833333,
+      "center_distance": 0.16568579367755856
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:13:19.911Z",
+    "emotion": "sad",
+    "stress_level": "Medium",
+    "confidence": 99.37333464622498,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 116.7671199845679,
+      "face_ratio": 0.0675,
+      "center_distance": 0.1855987226537253
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:13:23.373Z",
+    "emotion": "neutral",
+    "stress_level": "Low",
+    "confidence": 99.41558830923894,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 113.71152970834355,
+      "face_ratio": 0.09297200520833333,
+      "center_distance": 0.23298677411832305
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:13:25.296Z",
+    "emotion": "happy",
+    "stress_level": "Low",
+    "confidence": 99.72922205924988,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 115.01569586167801,
+      "face_ratio": 0.091875,
+      "center_distance": 0.23351927115336757
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:13:27.528Z",
+    "emotion": "neutral",
+    "stress_level": "Low",
+    "confidence": 98.52571478639334,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 117.63765595463138,
+      "face_ratio": 0.043050130208333336,
+      "center_distance": 0.105445599311031
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:13:30.049Z",
+    "emotion": "neutral",
+    "stress_level": "Low",
+    "confidence": 80.06793856620789,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 120.09916734693877,
+      "face_ratio": 0.09969075520833333,
+      "center_distance": 0.14280738084977826
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:13:36.727Z",
+    "emotion": "neutral",
+    "stress_level": "Low",
+    "confidence": 99.25446510314941,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 118.53337353690962,
+      "face_ratio": 0.11875325520833334,
+      "center_distance": 0.19093372797010616
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:13:38.515Z",
+    "emotion": "neutral",
+    "stress_level": "Low",
+    "confidence": 99.46259862630383,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 118.57917820235191,
+      "face_ratio": 0.11875325520833334,
+      "center_distance": 0.19321600499874128
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:13:43.537Z",
+    "emotion": "neutral",
+    "stress_level": "Low",
+    "confidence": 99.99758601174271,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 126.828225,
+      "face_ratio": 0.13020833333333334,
+      "center_distance": 0.17546518653005724
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:13:46.080Z",
+    "emotion": "neutral",
+    "stress_level": "Low",
+    "confidence": 99.99741315841675,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 127.36620641122084,
+      "face_ratio": 0.13414388020833334,
+      "center_distance": 0.17537182256615116
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:13:49.195Z",
+    "emotion": "happy",
+    "stress_level": "Low",
+    "confidence": 72.55712747573853,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 128.17706771860617,
+      "face_ratio": 0.123779296875,
+      "center_distance": 0.19875251816407888
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:13:51.542Z",
+    "emotion": "neutral",
+    "stress_level": "Low",
+    "confidence": 68.32579374313354,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 128.38545541502816,
+      "face_ratio": 0.12251302083333333,
+      "center_distance": 0.2104914264881114
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:13:58.408Z",
+    "emotion": "neutral",
+    "stress_level": "Low",
+    "confidence": 83.92061591148376,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 131.908447265625,
+      "face_ratio": 0.12,
+      "center_distance": 0.12353745074312936
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:14:03.475Z",
+    "emotion": "neutral",
+    "stress_level": "Low",
+    "confidence": 69.67916488647461,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 130.46120096151603,
+      "face_ratio": 0.139482421875,
+      "center_distance": 0.18687558789623246
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:14:09.704Z",
+    "emotion": "angry",
+    "stress_level": "Medium",
+    "confidence": 38.772815465927124,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 131.13444887862028,
+      "face_ratio": 0.139482421875,
+      "center_distance": 0.1971601839351452
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:14:13.686Z",
+    "emotion": "neutral",
+    "stress_level": "Low",
+    "confidence": 63.701629638671875,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 128.9140770512695,
+      "face_ratio": 0.13282552083333332,
+      "center_distance": 0.20293260118817777
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:14:16.481Z",
+    "emotion": "sad",
+    "stress_level": "Medium",
+    "confidence": 43.590421248624175,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 116.54688614540467,
+      "face_ratio": 0.059326171875,
+      "center_distance": 0.2557743775802465
+    }
+  },
+  {
+    "timestamp": "2025-08-22T18:25:24.083Z",
+    "emotion": "neutral",
+    "stress_level": "Low",
+    "confidence": 96.06568264178244,
+    "face_quality": {
+      "is_bright": true,
+      "is_proper_size": true,
+      "is_centered": true,
+      "brightness": 105.73770816027847,
+      "face_ratio": 0.082294921875,
+      "center_distance": 0.2118097001245228
+    }
   }
 ]

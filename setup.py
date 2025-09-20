@@ -12,7 +12,8 @@ setup(
         "requests>=2.28.2",
         "numpy>=1.23.5",
         "opencv-python>=4.7.0",
-        "deepface>=0.0.79",
+        # "deepface>=0.0.79",  # Removed - using custom CNN model instead
+        "tensorflow>=2.14.0",  # Added for custom CNN model
         "pywin32>=305",
         "pyinstaller>=5.9.0"
     ],

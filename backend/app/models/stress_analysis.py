@@ -1,12 +1,61 @@
 import cv2
 import numpy as np
-from deepface import DeepFace
+# from deepface import DeepFace  # Removed - using custom CNN model instead
 import logging
 from app.core.config import settings
 import base64
 from typing import Dict, Tuple, Any, Optional
+import os
+from tensorflow.keras.models import load_model
+from tensorflow.keras.utils import load_img, img_to_array
+from tensorflow.keras.layers import InputLayer
+import tensorflow as tf
 
 logger = logging.getLogger(__name__)
+
+# Custom InputLayer for compatibility with older Keras models
+class CustomInputLayer(InputLayer):
+    def __init__(self, batch_shape=None, input_shape=None, dtype=None, sparse=False, name=None, ragged=False, **kwargs):
+        # Handle batch_shape parameter that might be present in older models
+        if batch_shape is not None:
+            if input_shape is None:
+                input_shape = batch_shape[1:]  # Remove batch dimension
+            kwargs.pop('batch_shape', None)  # Remove batch_shape from kwargs
+        
+        super().__init__(input_shape=input_shape, dtype=dtype, sparse=sparse, name=name, ragged=ragged, **kwargs)
+
+# Custom DTypePolicy for compatibility with newer Keras models
+class CustomDTypePolicy:
+    def __init__(self, name='float32'):
+        self.name = name
+        self.compute_dtype = name
+        self.variable_dtype = name
+    
+    def __eq__(self, other):
+        return isinstance(other, CustomDTypePolicy) and self.name == other.name
+    
+    def __repr__(self):
+        return f"DTypePolicy({self.name})"
+
+# Register the custom objects
+tf.keras.utils.get_custom_objects()['InputLayer'] = CustomInputLayer
+tf.keras.utils.get_custom_objects()['DTypePolicy'] = CustomDTypePolicy
+
+# Custom CNN model configuration
+MODEL_PATH = os.path.join(os.path.dirname(__file__), 'stress_cnn_model.h5')
+CLASS_NAMES = ['angry', 'disgusted', 'fearful', 'happy', 'neutral', 'sad', 'surprised']
+EMOTION_TO_STRESS = {
+    "happy": ("Low", 0.2),
+    "neutral": ("Low", 0.3),
+    "surprised": ("Medium", 0.55),
+    "angry": ("High", 0.8),
+    "fearful": ("High", 0.85),
+    "sad": ("High", 0.75),
+    "disgusted": ("High", 0.9),
+}
+
+# Global model variable
+_custom_model = None
 
 def detect_face(img):
     """Detect if a face is present in the image and return face location"""
@@ -85,6 +134,78 @@ def check_face_quality(img, face_location):
             "center_distance": 1
         }
 
+def load_custom_model():
+    """Load the custom CNN model."""
+    global _custom_model
+    if _custom_model is None:
+        try:
+            if os.path.exists(MODEL_PATH):
+                # Load model without compiling to avoid optimizer compatibility issues
+                _custom_model = load_model(MODEL_PATH, compile=False)
+                # Recompile with compatible optimizer
+                _custom_model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+                logger.info(f"✅ Custom CNN model loaded successfully from {MODEL_PATH}")
+            else:
+                logger.error(f"❌ Custom model file not found: {MODEL_PATH}")
+                return False
+        except Exception as e:
+            logger.error(f"❌ Error loading custom model: {e}")
+            return False
+    return True
+
+def preprocess_face_for_model(face_img):
+    """Preprocess face image for custom model prediction."""
+    try:
+        # Resize to model input size (64x64)
+        face_resized = cv2.resize(face_img, (64, 64))
+        
+        # Convert BGR to RGB if needed
+        if face_resized.shape[2] == 3:
+            face_rgb = cv2.cvtColor(face_resized, cv2.COLOR_BGR2RGB)
+        else:
+            face_rgb = face_resized
+        
+        # Normalize and add batch dimension
+        face_array = face_rgb.astype(np.float32) / 255.0
+        face_array = np.expand_dims(face_array, axis=0)
+        
+        return face_array
+    except Exception as e:
+        logger.error(f"Error preprocessing face for model: {e}")
+        return None
+
+def predict_emotion_with_custom_model(face_img):
+    """Predict emotion using custom CNN model."""
+    if not load_custom_model():
+        return None
+    
+    try:
+        # Preprocess the face
+        processed_face = preprocess_face_for_model(face_img)
+        if processed_face is None:
+            return None
+        
+        # Make prediction
+        predictions = _custom_model.predict(processed_face, verbose=0)
+        predicted_class_idx = np.argmax(predictions[0])
+        predicted_class = CLASS_NAMES[predicted_class_idx]
+        confidence = float(predictions[0][predicted_class_idx])
+        
+        # Map to stress level
+        stress_level, base_score = EMOTION_TO_STRESS[predicted_class]
+        stress_score = round(base_score * confidence, 2)
+        
+        return {
+            'emotion': predicted_class,
+            'confidence': confidence,
+            'stress_level': stress_level,
+            'stress_score': stress_score
+        }
+        
+    except Exception as e:
+        logger.error(f"Error making prediction with custom model: {e}")
+        return None
+
 def analyze_image(image_data: str) -> Dict[str, Any]:
     """
     Analyze an image for emotion detection and stress analysis
@@ -130,35 +251,37 @@ def analyze_image(image_data: str) -> Dict[str, Any]:
             logger.warning(f"Face not centered. Distance: {quality['center_distance']}")
             return {"error": "Please center your face in the frame."}
 
-        # Analyze emotion using DeepFace
+        # Extract face for custom model
+        x, y, w, h = face_locations[0]
+        face_img = img[y:y+h, x:x+w]
+        
+        # Analyze emotion using custom CNN model
         try:
-            logger.info("Starting emotion analysis with DeepFace for image.")
-            # Log image dimensions before analysis
-            logger.info(f"Image dimensions for DeepFace: {img.shape}")
-            result = DeepFace.analyze(
-                img,
-                actions=['emotion'],
-                enforce_detection=False,
-                detector_backend='opencv'
-            )
-            logger.info(f"DeepFace emotion analysis successful. Result: {result}")
+            logger.info("Starting emotion analysis with custom CNN model.")
+            result = predict_emotion_with_custom_model(face_img)
+            if result is None:
+                logger.error("Custom model prediction failed")
+                return {"error": "Unable to analyze emotions. Please ensure your face is clearly visible and try again."}
+            
+            logger.info(f"Custom CNN emotion analysis successful. Result: {result}")
         except Exception as e:
-            logger.error(f"Error in DeepFace emotion analysis: {str(e)}", exc_info=True)
+            logger.error(f"Error in custom CNN emotion analysis: {str(e)}", exc_info=True)
             return {"error": "Unable to analyze emotions. Please ensure your face is clearly visible and try again."}
         
-        # Get dominant emotion and confidence
-        emotion = result[0]['dominant_emotion']
-        confidence = result[0]['emotion'][emotion]
+        # Get emotion data from custom model result
+        emotion = result['emotion']
+        confidence = result['confidence']
+        stress_level = result['stress_level']
+        stress_score = result['stress_score']
+        
         logger.info(f"Detected emotion: {emotion} with confidence: {confidence}")
         
-        # Check if confidence meets minimum threshold
+        # Check if confidence meets minimum threshold (using same logic as before)
         emotion_config = settings.EMOTION_STRESS_MAP.get(emotion, {"level": "Medium", "min_confidence": 25})
-        if confidence < emotion_config["min_confidence"]:
-            logger.warning(f"Low confidence in emotion detection: {confidence} < {emotion_config['min_confidence']}. Emotion: {emotion}")
-            return {"error": "Unable to detect clear emotions. Please ensure your face is clearly visible and try again."}
-        
-        # Map emotion to stress level
-        stress_level = emotion_config["level"]
+        confidence_percent = confidence * 100  # Convert to percentage
+        if confidence_percent < emotion_config["min_confidence"]:
+            logger.warning(f"Low confidence in emotion detection: {confidence_percent:.1f}% < {emotion_config['min_confidence']}%. Emotion: {emotion}")
+            return {"error": f"Low confidence in emotion detection ({confidence_percent:.1f}%). Please ensure your face is clearly visible and try again."}
         
         # Get suggestions for the stress level
         suggestions = settings.STRESS_SUGGESTIONS.get(stress_level, [])
@@ -175,6 +298,7 @@ def analyze_image(image_data: str) -> Dict[str, Any]:
             "emotion": emotion,
             "stress_level": stress_level,
             "confidence": float(confidence),
+            "stress_score": float(stress_score),
             "suggestions": suggestions,
             "face_quality": {
                 "is_bright": bool(quality["is_bright"]),

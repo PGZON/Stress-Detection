@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, EmailStr
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
 
@@ -90,6 +90,8 @@ class Employee(EmployeeBase):
 class DeviceBase(BaseModel):
     employee_id: str
     device_name: Optional[str] = None
+    device_number: Optional[str] = None
+    device_info: Optional[Dict[str, Any]] = None
 
 class DeviceCreate(DeviceBase):
     pass

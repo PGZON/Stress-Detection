@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Header, Request, Body, Query
-from typing import List, Any, Dict
+from typing import List, Any, Dict, Optional
 from app.schemas.schemas import Command, CommandUpdate
 from app.models.models import get_pending_commands, update_command
-from app.core.security.deps import verify_device_api_key, limiter
+from app.core.security.deps import verify_device_api_key, limiter, get_current_active_user
 import logging
 from datetime import datetime
 import uuid
@@ -94,20 +94,40 @@ async def acknowledge_command(
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register_device(
     request: Request,
-    data: Dict[str, Any] = Body(...)
+    data: Dict[str, Any] = Body(...),
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_active_user)
 ) -> Any:
     """
-    Register a new device
+    Register a new device. If authenticated, verify employee_id matches user.
+    If not authenticated, allow registration for any employee_id.
     """
+    logger.info(f"[BACKEND] Device registration request received")
+    logger.info(f"[BACKEND] Request data: {data}")
+    logger.info(f"[BACKEND] Current user: {current_user}")
+    logger.info(f"[BACKEND] Headers: {dict(request.headers)}")
+    
     try:
         employee_id = data.get("employee_id")
         device_name = data.get("device_name")
         device_type = data.get("device_type", "windows_agent")
+        device_number = data.get("device_number")
+        device_info = data.get("device_info", {})
         
         if not employee_id or not device_name:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Missing required fields"
+                detail="Missing required fields: employee_id, device_name"
+            )
+        
+        # Generate device_number if not provided
+        if not device_number:
+            device_number = f"{employee_id}-{uuid.uuid4().hex[:8]}"
+        
+        # If authenticated, verify that the employee_id matches the authenticated user
+        if current_user and employee_id != current_user.get("employee_id"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cannot register device for another employee"
             )
         
         # Generate a unique device ID
@@ -121,19 +141,36 @@ async def register_device(
         from app.core.security.auth import hash_api_key
         api_key_hash = hash_api_key(api_key)
         
-        # Get existing device for this employee if any
+        # Get devices collection
         from app.db.mongodb import devices_collection
-        existing_device = devices_collection.find_one({"employee_id": employee_id, "device_type": device_type})
+        
+        # Check if device_number is already registered (unique constraint)
+        existing_device_by_number = devices_collection.find_one({"device_number": device_number})
+        if existing_device_by_number:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Device number {device_number} is already registered"
+            )
+        
+        # Check if employee already has a device of this type
+        query = {"employee_id": employee_id, "device_type": device_type}
+        if current_user:
+            query["user_id"] = current_user["user_id"]
+        
+        existing_device = devices_collection.find_one(query)
         
         if existing_device:
             # Update existing device instead of creating a new one
-            logger.info(f"Updating existing device for employee {employee_id}")
+            user_info = current_user['username'] if current_user else f"employee {employee_id}"
+            logger.info(f"Updating existing device for {user_info}")
             
             # Update device with new keys and info
             devices_collection.update_one(
                 {"_id": existing_device["_id"]},
                 {"$set": {
                     "device_name": device_name,
+                    "device_number": device_number,
+                    "device_info": device_info,
                     "api_key": api_key,
                     "api_key_hash": api_key_hash,
                     "updated_at": datetime.utcnow(),
@@ -144,13 +181,16 @@ async def register_device(
             )
             
             device_id = existing_device["device_id"]
-            logger.info(f"Device updated: {device_id} for employee {employee_id}")
+            user_info = current_user['username'] if current_user else f"employee {employee_id}"
+            logger.info(f"Device updated: {device_id} for {user_info}")
         else:
             # Save device in database
             device_data = {
                 "device_id": device_id,
                 "employee_id": employee_id,
                 "device_name": device_name,
+                "device_number": device_number,
+                "device_info": device_info,
                 "device_type": device_type,
                 "api_key": api_key,  # Store plain API key for direct comparison
                 "api_key_hash": api_key_hash,
@@ -160,9 +200,14 @@ async def register_device(
                 "status": "active"
             }
             
+            # Add user_id if authenticated
+            if current_user:
+                device_data["user_id"] = current_user["user_id"]
+            
             # Save to the database
             devices_collection.insert_one(device_data)
-            logger.info(f"Device registered: {device_id} for employee {employee_id}")
+            user_info = current_user['username'] if current_user else f"employee {employee_id}"
+            logger.info(f"Device registered: {device_id} for {user_info}")
         
         # Do a verification test to ensure the API key works
         try:

@@ -199,7 +199,9 @@ def create_stress_record(submission: StressSubmission) -> StressRecord:
         "face_quality": submission.face_quality.dict() if submission.face_quality else None
     }
     
+    logger.info(f"[DATABASE] Creating stress record: {record_db}")
     stress_records_collection.insert_one(record_db)
+    logger.info(f"[DATABASE] Stress record created successfully with ID: {record_id}")
     return StressRecord(**record_db)
 
 def get_stress_records_by_employee(employee_id: str, from_date=None, to_date=None, limit=50):
