@@ -1,4 +1,4 @@
-# StressSense Windows Agent
+# StressSense+ Windows Agent
 
 This is a Windows desktop application for employee stress level detection. The application provides a user-friendly interface for device registration, service management, and stress monitoring.
 
@@ -10,16 +10,17 @@ This is a Windows desktop application for employee stress level detection. The a
 - **Service Management**: Install, start, stop, and uninstall Windows service
 - **Background Monitoring**: Automatic stress detection every 30 minutes
 - **Local Processing**: AI analysis performed locally (no images sent to server)
-- **Professional Installer**: NSIS-based Windows installer package
+- **Professional Installer**: NSIS-based Windows installer package (~420 MB)
+- **Optimized Size**: Reduced from 1.2 GB to 420 MB through dependency exclusion and build optimization
 
 ## Installation
 
 ### Option 1: Using the Installer (Recommended)
 
-1. Download `StressSense_Installer.exe`
+1. Download `StressSense+_Installer.exe` (420 MB)
 2. Run the installer with administrator privileges
 3. Follow the installation wizard
-4. Launch StressSense from the desktop shortcut
+4. Launch StressSense+ from the desktop shortcut
 
 ### Option 2: Manual Installation
 
@@ -61,27 +62,85 @@ Use the GUI to:
 
 ## Building from Source
 
-### Build Executable
+### Prerequisites
+- Python 3.8+ with all dependencies installed
+- PyInstaller: `pip install pyinstaller`
+- NSIS (Nullsoft Scriptable Install System): Download from https://nsis.sourceforge.io/
 
-```bash
-build_exe.bat
-```
+### Build Process
 
-This creates `dist/StressSense.exe`
+1. **Build the executables:**
+   ```bash
+   build_exe.bat
+   ```
+   This creates:
+   - `StressSense+.exe` - Main client application
+   - `StressDetectionService.exe` - Background service
+   - `install_service.exe` - Service installer utility
 
-### Build Installer (Requires NSIS)
+2. **Build the installer:**
+   ```bash
+   build_installer.bat
+   ```
+   This creates `StressSense+_Installer.exe`
 
-```bash
-makensis installer.nsi
-```
+### What the Production Installer Does
 
-This creates `StressSense_Installer.exe`
+The professional installer provides:
+
+- **Terms and Conditions**: Displays license agreement
+- **Installation Path Selection**: Choose where to install
+- **Progress Display**: Shows installation progress
+- **Automatic Service Installation**: Installs and starts the background service
+- **Desktop Shortcuts**: Creates shortcuts for easy access
+- **Uninstaller**: Adds entry to Windows Add/Remove Programs
+
+## Size Optimization
+
+The installer size has been significantly reduced through several optimizations:
+
+- **Dependency Exclusion**: Removed unnecessary ML libraries (matplotlib, scipy, sklearn, pandas) from client
+- **Build Mode**: Changed from single-file (--onefile) to directory-based (--onedir) builds for better compression
+- **Selective Bundling**: Service includes only required ML dependencies (TensorFlow, OpenCV, NumPy)
+
+**Size Results:**
+- Original installer: ~1.2 GB
+- Optimized installer: ~420 MB (65% reduction)
+- Client application: ~56 MB
+- Service application: ~368 MB
+
+## Production Usage
+
+After installation:
+1. Users run `StressSense+.exe` from desktop/start menu
+2. First run: Device registration with employee ID
+3. Service automatically starts and runs in background
+4. No manual service management needed
 
 ## Configuration
 
-- **Backend URL**: Default is `http://localhost:8000` (configurable in scripts)
-- **Capture Interval**: 30 minutes (modify `CAPTURE_INTERVAL_MINUTES` in service script)
-- **Service Name**: `StressDetectionService`
+Create a `.env` file in the windows directory (copy from the provided `.env` template) and update values for your environment:
+
+- **Backend URL**: Configure `BACKEND_URL` (default: `http://localhost:8000`)
+- **API Prefix**: Configure `API_PREFIX` (default: `/api/v1`)
+- **Capture Interval**: Configure `CAPTURE_INTERVAL_MINUTES` (default: 30 minutes)
+- **Auto Analysis Interval**: Configure `AUTO_ANALYSIS_INTERVAL_SECONDS` (default: 120 seconds, set to 0 to disable)
+- **Service Check Interval**: Configure `SERVICE_CHECK_INTERVAL_SECONDS` (default: 60 seconds)
+- **Request Timeout**: Configure `REQUEST_TIMEOUT_SECONDS` (default: 10 seconds)
+- **Retry Settings**: Configure `MAX_CAPTURE_ATTEMPTS`, `CAPTURE_RETRY_DELAY_SECONDS`, `MAX_RETRY_ATTEMPTS`, `RETRY_DELAY_SECONDS`
+- **Emotion Thresholds**: Configure individual emotion confidence thresholds (e.g., `EMOTION_SAD_MIN_CONFIDENCE`)
+
+Example `.env` file:
+```
+BACKEND_URL=https://your-hosted-backend.com
+API_PREFIX=/api/v1
+CONFIG_FILE=device_config.json
+CAPTURE_INTERVAL_MINUTES=30
+AUTO_ANALYSIS_INTERVAL_SECONDS=120
+REQUEST_TIMEOUT_SECONDS=10
+MAX_CAPTURE_ATTEMPTS=3
+EMOTION_SAD_MIN_CONFIDENCE=30
+```
 
 ## System Requirements
 

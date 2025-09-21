@@ -26,6 +26,8 @@ def create_user(user_data: UserCreate) -> User:
         "username": user_data.username,
         "password_hash": get_password_hash(user_data.password),
         "role": user_data.role,
+        "full_name": getattr(user_data, 'full_name', None),
+        "email": getattr(user_data, 'email', None),
         "employee_id": user_data.employee_id,
         "active": True,
         "created_at": created_at

@@ -16,3 +16,9 @@ data/train
 data/test
 
 backend/ModelTraining/venv/
+windows/build/
+windows/dist/
+windows/installer/
+windows/__pycache__/
+windows/logs/
+windows/*.json

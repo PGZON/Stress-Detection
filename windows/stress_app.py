@@ -6,32 +6,71 @@ import sys
 import subprocess
 import threading
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 import logging
 import time
 
+# Import stress analysis modules for PyInstaller to detect
+try:
+    from stress_analysis import analyze_image, analyze_image_array, EMOTION_STRESS_MAP
+except ImportError:
+    # Handle case where module not available (for development)
+    analyze_image = None
+    analyze_image_array = None
+    EMOTION_STRESS_MAP = {}
+
 # Configure logging
+import os
+log_dir = os.path.join(os.path.dirname(__file__), 'logs')
+os.makedirs(log_dir, exist_ok=True)
+
+# Create formatters
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+# Console handler
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(formatter)
+
+# File handler for all logs
+all_logs_file = os.path.join(log_dir, 'stress_app.log')
+file_handler = logging.FileHandler(all_logs_file, encoding='utf-8')
+file_handler.setFormatter(formatter)
+
+# File handler for errors only
+error_logs_file = os.path.join(log_dir, 'stress_app_errors.log')
+error_file_handler = logging.FileHandler(error_logs_file, encoding='utf-8')
+error_file_handler.setFormatter(formatter)
+error_file_handler.setLevel(logging.ERROR)
+
+# Configure root logger
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    handlers=[console_handler, file_handler, error_file_handler]
 )
 logger = logging.getLogger(__name__)
 
-# Import emotion stress mapping
-try:
-    from stress_analysis import EMOTION_STRESS_MAP
-except ImportError:
-    # Fallback mapping if import fails
-    EMOTION_STRESS_MAP = {
-        "happy": {"level": "Low", "min_confidence": 20},
-        "neutral": {"level": "Low", "min_confidence": 25},
-        "sad": {"level": "Medium", "min_confidence": 30},
-        "angry": {"level": "Medium", "min_confidence": 30},
-        "fear": {"level": "High", "min_confidence": 35},
-        "disgust": {"level": "High", "min_confidence": 35},
-        "surprise": {"level": "Medium", "min_confidence": 30}
-    }
+# Import emotion stress mapping - lazy load to speed up startup
+EMOTION_STRESS_MAP = None
+
+def get_emotion_stress_map():
+    """Lazy load emotion stress mapping to speed up app startup"""
+    global EMOTION_STRESS_MAP
+    if EMOTION_STRESS_MAP is None:
+        # Use the already imported EMOTION_STRESS_MAP if available
+        if EMOTION_STRESS_MAP is not None:
+            return EMOTION_STRESS_MAP
+        # Fallback mapping if import fails - now configurable via environment variables
+        EMOTION_STRESS_MAP = {
+            "happy": {"level": "Low", "min_confidence": int(os.getenv("EMOTION_HAPPY_MIN_CONFIDENCE", "20"))},
+            "neutral": {"level": "Low", "min_confidence": int(os.getenv("EMOTION_NEUTRAL_MIN_CONFIDENCE", "25"))},
+            "sad": {"level": "Medium", "min_confidence": int(os.getenv("EMOTION_SAD_MIN_CONFIDENCE", "30"))},
+            "angry": {"level": "Medium", "min_confidence": int(os.getenv("EMOTION_ANGRY_MIN_CONFIDENCE", "30"))},
+            "fear": {"level": "High", "min_confidence": int(os.getenv("EMOTION_FEAR_MIN_CONFIDENCE", "35"))},
+                "disgust": {"level": "High", "min_confidence": int(os.getenv("EMOTION_DISGUST_MIN_CONFIDENCE", "35"))},
+                "surprise": {"level": "Medium", "min_confidence": int(os.getenv("EMOTION_SURPRISE_MIN_CONFIDENCE", "30"))}
+            }
+    return EMOTION_STRESS_MAP
 
 # Load environment variables
 load_dotenv()
@@ -39,28 +78,184 @@ load_dotenv()
 class StressDetectionApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("StressSense - Employee Portal")
-        self.root.geometry("600x500")
-        self.root.resizable(False, False)
+        self.root.title("StressSense - Employee Wellness Portal")
+        self.root.geometry("900x700")
+        self.root.minsize(800, 600)
+        self.root.resizable(True, True)
+
+        # Modern styling
+        self.setup_styles()
 
         # Configuration
         self.config_file = os.getenv("CONFIG_FILE", "device_config.json")
         self.backend_url = os.getenv("BACKEND_URL", "http://localhost:8000")
         self.api_prefix = os.getenv("API_PREFIX", "/api/v1")
 
-        # Current user session
-        self.current_user = None
-        self.access_token = None
+        # Session file - handle bundled environment
+        if getattr(sys, '_MEIPASS', None):
+            # In bundled app, save session in executable directory
+            self.session_file = os.path.join(os.path.dirname(sys.executable), 'user_session.json')
+        else:
+            # Development mode - save in script directory
+            self.session_file = os.path.join(os.path.dirname(__file__), 'user_session.json')
+
+        # Try to load existing session
+        self.load_session()
 
         # Auto analysis timer
         self.auto_timer = None
 
-        # Create main container
-        self.main_frame = ttk.Frame(self.root, padding="20")
+        # Create main container with modern layout
+        self.main_frame = ttk.Frame(self.root, style="Main.TFrame")
         self.main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+
+        # Configure grid weights for responsiveness
+        self.root.columnconfigure(0, weight=1)
+        self.root.rowconfigure(0, weight=1)
+        self.main_frame.columnconfigure(0, weight=1)
+        self.main_frame.rowconfigure(1, weight=1)
 
         # Initialize UI
         self.show_terms_conditions()
+
+    def setup_styles(self):
+        """Setup monochrome black & white styling"""
+        style = ttk.Style()
+
+        # Monochrome color scheme: black text on white background
+        self.colors = {
+            'primary': '#000000',
+            'primary_dark': '#000000',
+            'primary_light': '#000000',
+            'secondary': '#000000',
+            'success': '#000000',
+            'warning': '#000000',
+            'error': '#000000',
+            'background': '#ffffff',
+            'surface': '#ffffff',
+            'text': '#000000',
+            'text_secondary': '#000000',
+            'border': '#000000',
+            'border_focus': '#000000'
+        }
+
+        # Main frame style
+        style.configure("Main.TFrame", background=self.colors['background'])
+
+        # Card style for sections
+        style.configure("Card.TFrame",
+                       background=self.colors['surface'],
+                       relief="raised",
+                       borderwidth=1)
+
+        # Title labels
+        style.configure("Title.TLabel",
+                       font=("Segoe UI", 24, "bold"),
+                       foreground=self.colors['text'],
+                       background=self.colors['background'])
+
+        style.configure("Subtitle.TLabel",
+                       font=("Segoe UI", 14),
+                       foreground=self.colors['text_secondary'],
+                       background=self.colors['background'])
+
+        # Form labels
+        style.configure("Form.TLabel",
+                       font=("Segoe UI", 11),
+                       foreground=self.colors['text'],
+                       background=self.colors['surface'])
+
+        # Buttons: monochrome style
+        style.configure("TButton",
+                       font=("Segoe UI", 11),
+                       background=self.colors['surface'],
+                       foreground=self.colors['text'],
+                       padding=(10, 5),
+                       borderwidth=1)
+        style.map("TButton",
+                  relief=[('pressed', 'sunken')],
+                  background=[('active', self.colors['surface'])])
+
+        # Entry fields
+        style.configure("Modern.TEntry",
+                       font=("Segoe UI", 11),
+                       padding=(10, 8),
+                       relief="flat",
+                       borderwidth=2)
+
+        # Labelframes
+        style.configure("Card.TLabelframe",
+                       background=self.colors['surface'],
+                       foreground=self.colors['text'],
+                       font=("Segoe UI", 12, "bold"),
+                       borderwidth=1,
+                       relief="solid")
+
+        style.configure("Card.TLabelframe.Label",
+                       background=self.colors['surface'],
+                       foreground=self.colors['primary'],
+                       font=("Segoe UI", 12, "bold"))
+
+        # Status labels
+        style.configure("Status.TLabel",
+                       font=("Segoe UI", 10),
+                       background=self.colors['background'])
+
+        # Configure button hover effects
+        style.map("Primary.TButton",
+                 background=[('active', self.colors['primary_dark'])],
+                 relief=[('pressed', 'sunken')])
+        # Add visible border for better contrast
+        style.configure("Primary.TButton", borderwidth=2)
+
+        style.map("Secondary.TButton",
+                 background=[('active', '#475569')],
+                 relief=[('pressed', 'sunken')])
+        style.configure("Secondary.TButton", borderwidth=2)
+
+        style.map("Success.TButton",
+                 background=[('active', '#047857')],
+                 relief=[('pressed', 'sunken')])
+        style.configure("Success.TButton", borderwidth=2)
+
+        # Configure entry focus
+        style.map("Modern.TEntry",
+                 bordercolor=[('focus', self.colors['border_focus'])])
+
+    def create_scrollable_frame(self, parent, height=None):
+        """Create a scrollable frame for content that might exceed window height"""
+        # Create a canvas with professional styling and smooth scrolling
+        canvas = tk.Canvas(parent, background=self.colors['surface'], highlightthickness=0)
+        canvas.configure(bd=0, relief='ridge')  # Remove border
+        scrollbar = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
+
+        # Create the scrollable frame
+        scrollable_frame = ttk.Frame(canvas, style="Card.TFrame")
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        # Configure grid for better expansion and scrolling
+        parent.columnconfigure(0, weight=1)
+        parent.rowconfigure(0, weight=1)
+        canvas.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
+        
+        # Configure canvas expansion
+        canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.bind('<Configure>', lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+
+        # Enable mouse wheel scrolling
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
+        return scrollable_frame
 
     def clear_frame(self):
         """Clear all widgets from main frame"""
@@ -71,17 +266,49 @@ class StressDetectionApp:
         """Show terms and conditions screen"""
         self.clear_frame()
 
-        # Title
-        title_label = ttk.Label(self.main_frame, text="Terms and Conditions",
-                               font=("Arial", 16, "bold"))
-        title_label.grid(row=0, column=0, columnspan=2, pady=(0, 20))
+        # Header section
+        header_frame = ttk.Frame(self.main_frame, style="Main.TFrame")
+        header_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(20, 15))
+        header_frame.columnconfigure(0, weight=1)
 
-        # Terms text
-        terms_frame = ttk.Frame(self.main_frame)
-        terms_frame.grid(row=1, column=0, columnspan=2, pady=(0, 20), sticky=(tk.W, tk.E))
+        # Logo/Title area
+        title_label = ttk.Label(header_frame, text="🧠 StressSense",
+                               style="Title.TLabel")
+        title_label.grid(row=0, column=0, pady=(0, 5))
 
-        terms_text = scrolledtext.ScrolledText(terms_frame, width=60, height=15, wrap=tk.WORD)
-        terms_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        subtitle_label = ttk.Label(header_frame, text="Employee Wellness Monitoring System",
+                                  style="Subtitle.TLabel")
+        subtitle_label.grid(row=1, column=0)
+
+        # Main content card (centered like login)
+        content_frame = ttk.Frame(self.main_frame, style="Card.TFrame", padding="40")
+        content_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=60, pady=(0, 30))
+        content_frame.columnconfigure(0, weight=1)
+
+        # Terms title
+        terms_title = ttk.Label(content_frame, text="📋 Terms and Conditions",
+                               font=("Segoe UI", 16, "bold"),
+                               foreground=self.colors['text'],
+                               background=self.colors['surface'])
+        terms_title.grid(row=0, column=0, pady=(10, 15))
+
+        # Terms text in a modern scrolled frame
+        terms_frame = ttk.Frame(content_frame, style="Card.TFrame")
+        terms_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 20))
+        terms_frame.columnconfigure(0, weight=1)
+
+        terms_text = scrolledtext.ScrolledText(
+            terms_frame,
+            wrap=tk.WORD,
+            font=("Segoe UI", 9),
+            background=self.colors['surface'],
+            foreground=self.colors['text'],
+            borderwidth=0,
+            padx=10,
+            pady=10,
+            height=12  # Limit height to make it scrollable
+        )
+        terms_text.grid(row=0, column=0, sticky=(tk.W, tk.E))
 
         terms_content = """
 STRESSSENSE EMPLOYEE STRESS DETECTION SYSTEM
@@ -141,25 +368,41 @@ By accepting these terms, you agree to participate in workplace stress monitorin
 Last updated: September 2025
         """
 
-        terms_text.insert(tk.END, terms_content)
+        terms_text.insert(tk.END, terms_content.strip())
         terms_text.config(state=tk.DISABLED)
 
-        # Accept checkbox
+        # Acceptance section
+        accept_frame = ttk.Frame(content_frame, style="Card.TFrame")
+        accept_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(20, 10))
+
+        # Checkbox with better styling
         self.accept_var = tk.BooleanVar()
-        accept_check = ttk.Checkbutton(self.main_frame, text="I accept the terms and conditions",
-                                      variable=self.accept_var)
-        accept_check.grid(row=2, column=0, columnspan=2, pady=(0, 20))
+        accept_check = ttk.Checkbutton(
+            accept_frame,
+            text="I have read and agree to the terms and conditions",
+            variable=self.accept_var,
+            style="TCheckbutton"
+        )
+        accept_check.grid(row=0, column=0, pady=10, padx=20)
 
         # Buttons
-        button_frame = ttk.Frame(self.main_frame)
-        button_frame.grid(row=3, column=0, columnspan=2)
+        button_frame = ttk.Frame(content_frame, style="Card.TFrame")
+        button_frame.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=(20, 20))
 
-        accept_btn = ttk.Button(button_frame, text="Accept & Continue",
-                               command=self.on_terms_accepted)
-        accept_btn.grid(row=0, column=0, padx=(0, 10))
+        accept_btn = ttk.Button(
+            button_frame,
+            text="Accept and Continue",
+            style="TButton",
+            command=self.on_terms_accepted
+        )
+        accept_btn.grid(row=0, column=0, padx=(0, 15))
 
-        decline_btn = ttk.Button(button_frame, text="Decline & Exit",
-                                command=self.on_terms_declined)
+        decline_btn = ttk.Button(
+            button_frame,
+            text="Decline and Exit",
+            style="TButton",
+            command=self.on_terms_declined
+        )
         decline_btn.grid(row=0, column=1)
 
     def on_terms_accepted(self):
@@ -169,10 +412,13 @@ Last updated: September 2025
             return
 
         # Check if device is already registered
-        if self.load_config():
-            self.show_main_menu()
-        else:
+        config = self.load_config()
+        if config and config.get('device_id') and config.get('api_key'):
+            # Device already registered, go to login
             self.show_login()
+        else:
+            # New installation, start with user registration
+            self.show_user_registration()
 
     def on_terms_declined(self):
         """Handle terms decline"""
@@ -182,40 +428,105 @@ Last updated: September 2025
     def show_login(self):
         """Show login screen"""
         self.clear_frame()
+        # Load existing configuration to control registration option
+        config = self.load_config()
 
-        # Title
-        title_label = ttk.Label(self.main_frame, text="Login to StressSense",
-                               font=("Arial", 16, "bold"))
-        title_label.grid(row=0, column=0, columnspan=2, pady=(0, 20))
+        # Header section
+        header_frame = ttk.Frame(self.main_frame, style="Main.TFrame")
+        header_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(30, 20))
+        header_frame.columnconfigure(0, weight=1)
 
-        # Login form
-        ttk.Label(self.main_frame, text="Username:").grid(row=1, column=0, sticky=tk.W, pady=5)
+        title_label = ttk.Label(header_frame, text="Welcome Back",
+                               style="Title.TLabel")
+        title_label.grid(row=0, column=0, pady=(0, 5))
+
+        subtitle_label = ttk.Label(header_frame, text="Sign in to your StressSense account",
+                                  style="Subtitle.TLabel")
+        subtitle_label.grid(row=1, column=0)
+
+        # Main content card
+        content_frame = ttk.Frame(self.main_frame, style="Card.TFrame", padding="40")
+        content_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=60, pady=(0, 30))
+        content_frame.columnconfigure(0, weight=1)
+
+        # Login form section
+        form_frame = ttk.Frame(content_frame, style="Card.TFrame")
+        form_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 30))
+        form_frame.columnconfigure(1, weight=1)
+
+        # Username field
+        username_label = ttk.Label(form_frame, text="Username", style="Form.TLabel")
+        username_label.grid(row=0, column=0, sticky=tk.W, pady=(0, 8))
+
         self.username_var = tk.StringVar()
-        username_entry = ttk.Entry(self.main_frame, textvariable=self.username_var, width=30)
-        username_entry.grid(row=1, column=1, pady=5, padx=(10, 0))
+        username_entry = ttk.Entry(form_frame, textvariable=self.username_var, style="Modern.TEntry")
+        username_entry.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 20))
 
-        ttk.Label(self.main_frame, text="Password:").grid(row=2, column=0, sticky=tk.W, pady=5)
+        # Password field
+        password_label = ttk.Label(form_frame, text="Password", style="Form.TLabel")
+        password_label.grid(row=2, column=0, sticky=tk.W, pady=(0, 8))
+
+        # Password entry with toggle button
+        password_frame = ttk.Frame(form_frame, style="Card.TFrame")
+        password_frame.grid(row=3, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 30))
+        password_frame.columnconfigure(0, weight=1)
+
         self.password_var = tk.StringVar()
-        password_entry = ttk.Entry(self.main_frame, textvariable=self.password_var, show="*", width=30)
-        password_entry.grid(row=2, column=1, pady=5, padx=(10, 0))
+        self.password_show = False
+        password_entry = ttk.Entry(password_frame, textvariable=self.password_var,
+                                 show="*", style="Modern.TEntry")
+        password_entry.grid(row=0, column=0, sticky=(tk.W, tk.E))
 
-        # Buttons
-        button_frame = ttk.Frame(self.main_frame)
-        button_frame.grid(row=3, column=0, columnspan=2, pady=20)
+        # Password toggle button
+        def toggle_password():
+            self.password_show = not self.password_show
+            password_entry.config(show="" if self.password_show else "*")
+            toggle_btn.config(text="🙈" if self.password_show else "👁️")
 
-        login_btn = ttk.Button(button_frame, text="Login", command=self.do_login)
-        login_btn.grid(row=0, column=0, padx=(0, 10))
+        toggle_btn = ttk.Button(password_frame, text="👁️", width=3,
+                              command=toggle_password, style="TButton")
+        toggle_btn.grid(row=0, column=1, padx=(5, 0))
 
-        register_btn = ttk.Button(button_frame, text="Register New User", command=self.show_user_registration)
-        register_btn.grid(row=0, column=1, padx=(0, 10))
+        # Buttons section
+        button_frame = ttk.Frame(content_frame, style="Card.TFrame")
+        button_frame.grid(row=1, column=0, sticky=(tk.W, tk.E))
 
-        back_btn = ttk.Button(button_frame, text="Back", command=self.show_terms_conditions)
-        back_btn.grid(row=0, column=2)
+        login_btn = ttk.Button(
+            button_frame,
+            text="Sign In",
+            command=self.do_login
+        )
+        login_btn.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+
+        # Secondary actions
+        actions_frame = ttk.Frame(content_frame, style="Card.TFrame")
+        actions_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(20, 0))
+
+        # Only show registration option if no existing configuration
+        if not config:
+            register_btn = ttk.Button(
+                actions_frame,
+                text="Register",
+                command=self.show_user_registration
+            )
+            register_btn.grid(row=0, column=0, pady=(0, 10))
+
+        back_btn = ttk.Button(
+            actions_frame,
+            text="Back",
+            command=self.show_terms_conditions
+        )
+        back_btn.grid(row=1, column=0)
 
         # Status label
         self.login_status_var = tk.StringVar()
-        status_label = ttk.Label(self.main_frame, textvariable=self.login_status_var, foreground="red")
-        status_label.grid(row=4, column=0, columnspan=2, pady=(10, 0))
+        status_label = ttk.Label(
+            content_frame,
+            textvariable=self.login_status_var,
+            style="Status.TLabel",
+            foreground=self.colors['error']
+        )
+        status_label.grid(row=3, column=0, pady=(20, 0))
 
     def do_login(self):
         """Perform login"""
@@ -247,8 +558,14 @@ Last updated: September 2025
             self.current_user = result
             self.access_token = result.get("access_token")  # Store the access token
 
+            # Save session for persistence
+            self.save_session(self.current_user, self.access_token)
+
+            # On login success, navigate to main menu
+            logger.info("[LOGIN] Login successful, navigating to main menu")
             self.login_status_var.set("Login successful!")
-            self.root.after(1000, self.show_device_registration)
+
+            self.root.after(500, self.show_main_menu)
 
         except requests.exceptions.RequestException as e:
             logger.error(f"[LOGIN] Login failed: {str(e)}")
@@ -261,17 +578,44 @@ Last updated: September 2025
         """Show user registration screen"""
         self.clear_frame()
 
-        # Title
-        title_label = ttk.Label(self.main_frame, text="Register New User",
-                               font=("Arial", 16, "bold"))
-        title_label.grid(row=0, column=0, columnspan=2, pady=(0, 20))
+        # Header section
+        header_frame = ttk.Frame(self.main_frame, style="Main.TFrame")
+        header_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(20, 15))
+        header_frame.columnconfigure(0, weight=1)
+
+        title_label = ttk.Label(header_frame, text="📝 Create Account",
+                               style="Title.TLabel")
+        title_label.grid(row=0, column=0, pady=(0, 5))
+
+        subtitle_label = ttk.Label(header_frame, text="Join StressSense for employee wellness monitoring",
+                                  style="Subtitle.TLabel")
+        subtitle_label.grid(row=1, column=0)
+
+        # Create main container for full screen layout
+        container_frame = ttk.Frame(self.main_frame, style="Main.TFrame")
+        container_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        container_frame.columnconfigure(0, weight=1)
+        container_frame.rowconfigure(0, weight=1)
+
+        # Main content card
+        content_frame = ttk.Frame(container_frame, style="Card.TFrame", padding="40")
+        content_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=60, pady=(0, 30))
+        content_frame.columnconfigure(0, weight=1)
+        content_frame.rowconfigure(0, weight=1)
+
+        # Create scrollable content area that fills the frame
+        scrollable_content = self.create_scrollable_frame(content_frame)
+        scrollable_content.columnconfigure(0, weight=2)  # Device info column
+        scrollable_content.columnconfigure(1, weight=3)  # Form column (wider)
+        scrollable_content.rowconfigure(0, weight=1)     # Allow vertical expansion
 
         # Get device info
         device_info = self.get_device_info()
 
-        # Device info display
-        device_info_frame = ttk.LabelFrame(self.main_frame, text="Device Information", padding="10")
-        device_info_frame.grid(row=1, column=0, columnspan=2, pady=(0, 20), sticky=(tk.W, tk.E))
+        # Left column - Device Information
+        device_frame = ttk.LabelFrame(scrollable_content, text="🖥️ Device Information", style="Card.TLabelframe", padding="25")
+        device_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N), padx=(0, 20), pady=10)
+        device_frame.columnconfigure(0, weight=1)  # Allow horizontal expansion
 
         device_info_text = f"Device Number: {device_info.get('device_number', 'Unknown')}\n"
         device_info_text += f"OS: {device_info.get('os', 'Unknown')}\n"
@@ -280,54 +624,142 @@ Last updated: September 2025
         device_info_text += f"Hostname: {device_info.get('hostname', 'Unknown')}\n"
         device_info_text += f"MAC Address: {device_info.get('mac_address', 'Unknown')}"
 
-        device_info_label = ttk.Label(device_info_frame, text=device_info_text, justify=tk.LEFT)
+        device_info_label = ttk.Label(device_frame, text=device_info_text,
+                                     font=("Segoe UI", 9),
+                                     foreground=self.colors['text_secondary'],
+                                     background=self.colors['surface'],
+                                     justify=tk.LEFT)
         device_info_label.grid(row=0, column=0, sticky=(tk.W, tk.E))
 
-        # Registration form
-        ttk.Label(self.main_frame, text="Username:").grid(row=2, column=0, sticky=tk.W, pady=5)
+        # Right column - Registration Form
+        form_container = ttk.Frame(scrollable_content, style="Card.TFrame")
+        form_container.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=(20, 0), pady=10)
+        form_container.columnconfigure(0, weight=1)
+
+        # Registration form with professional layout
+        # Account Information Section
+        account_frame = ttk.LabelFrame(form_container, text="🔐 Account Information", style="Card.TLabelframe", padding="20")
+        account_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 20))
+        account_frame.columnconfigure(0, weight=1)
+        account_frame.columnconfigure(1, weight=0)
+
+        # Username field
+        username_label = ttk.Label(account_frame, text="👤 Username", style="Form.TLabel")
+        username_label.grid(row=0, column=0, sticky=tk.W, pady=(0, 8))
+
         self.reg_username_var = tk.StringVar()
-        username_entry = ttk.Entry(self.main_frame, textvariable=self.reg_username_var, width=30)
-        username_entry.grid(row=2, column=1, pady=5, padx=(10, 0))
+        username_entry = ttk.Entry(account_frame, textvariable=self.reg_username_var, style="Modern.TEntry")
+        username_entry.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 15))
 
-        ttk.Label(self.main_frame, text="Password:").grid(row=3, column=0, sticky=tk.W, pady=5)
+        # Password fields
+        password_label = ttk.Label(account_frame, text="🔒 Password", style="Form.TLabel")
+        password_label.grid(row=2, column=0, sticky=tk.W, pady=(0, 8))
+
+        # Password entry with toggle button
+        password_frame = ttk.Frame(account_frame, style="Card.TFrame")
+        password_frame.grid(row=3, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 15))
+        password_frame.columnconfigure(0, weight=1)
+
         self.reg_password_var = tk.StringVar()
-        password_entry = ttk.Entry(self.main_frame, textvariable=self.reg_password_var, show="*", width=30)
-        password_entry.grid(row=3, column=1, pady=5, padx=(10, 0))
+        self.reg_password_show = False
+        password_entry = ttk.Entry(password_frame, textvariable=self.reg_password_var,
+                                 show="*", style="Modern.TEntry")
+        password_entry.grid(row=0, column=0, sticky=(tk.W, tk.E))
 
-        ttk.Label(self.main_frame, text="Confirm Password:").grid(row=4, column=0, sticky=tk.W, pady=5)
+        # Password toggle button
+        def toggle_reg_password():
+            self.reg_password_show = not self.reg_password_show
+            password_entry.config(show="" if self.reg_password_show else "*")
+            reg_toggle_btn.config(text="🙈" if self.reg_password_show else "👁️")
+
+        reg_toggle_btn = ttk.Button(password_frame, text="👁️", width=3,
+                                  command=toggle_reg_password, style="TButton")
+        reg_toggle_btn.grid(row=0, column=1, padx=(5, 0))
+
+        confirm_label = ttk.Label(account_frame, text="🔒 Confirm Password", style="Form.TLabel")
+        confirm_label.grid(row=4, column=0, sticky=tk.W, pady=(0, 8))
+
+        # Confirm password entry with toggle button
+        confirm_frame = ttk.Frame(account_frame, style="Card.TFrame")
+        confirm_frame.grid(row=5, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 20))
+        confirm_frame.columnconfigure(0, weight=1)
+
         self.reg_confirm_password_var = tk.StringVar()
-        confirm_entry = ttk.Entry(self.main_frame, textvariable=self.reg_confirm_password_var, show="*", width=30)
-        confirm_entry.grid(row=4, column=1, pady=5, padx=(10, 0))
+        self.reg_confirm_show = False
+        confirm_entry = ttk.Entry(confirm_frame, textvariable=self.reg_confirm_password_var,
+                                show="*", style="Modern.TEntry")
+        confirm_entry.grid(row=0, column=0, sticky=(tk.W, tk.E))
 
-        ttk.Label(self.main_frame, text="Full Name:").grid(row=5, column=0, sticky=tk.W, pady=5)
+        # Confirm password toggle button
+        def toggle_confirm_password():
+            self.reg_confirm_show = not self.reg_confirm_show
+            confirm_entry.config(show="" if self.reg_confirm_show else "*")
+            confirm_toggle_btn.config(text="🙈" if self.reg_confirm_show else "👁️")
+
+        confirm_toggle_btn = ttk.Button(confirm_frame, text="👁️", width=3,
+                                      command=toggle_confirm_password, style="TButton")
+        confirm_toggle_btn.grid(row=0, column=1, padx=(5, 0))
+
+        # Personal Information Section
+        personal_frame = ttk.LabelFrame(form_container, text="👤 Personal Information", style="Card.TLabelframe", padding="20")
+        personal_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 20))
+        personal_frame.columnconfigure(0, weight=1)
+        personal_frame.columnconfigure(1, weight=0)
+
+        # Full Name field
+        fullname_label = ttk.Label(personal_frame, text="👨‍💼 Full Name", style="Form.TLabel")
+        fullname_label.grid(row=0, column=0, sticky=tk.W, pady=(0, 8))
+
         self.reg_fullname_var = tk.StringVar()
-        fullname_entry = ttk.Entry(self.main_frame, textvariable=self.reg_fullname_var, width=30)
-        fullname_entry.grid(row=5, column=1, pady=5, padx=(10, 0))
+        fullname_entry = ttk.Entry(personal_frame, textvariable=self.reg_fullname_var, style="Modern.TEntry")
+        fullname_entry.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 15))
 
-        ttk.Label(self.main_frame, text="Email:").grid(row=6, column=0, sticky=tk.W, pady=5)
+        # Email field
+        email_label = ttk.Label(personal_frame, text="📧 Email Address", style="Form.TLabel")
+        email_label.grid(row=2, column=0, sticky=tk.W, pady=(0, 8))
+
         self.reg_email_var = tk.StringVar()
-        email_entry = ttk.Entry(self.main_frame, textvariable=self.reg_email_var, width=30)
-        email_entry.grid(row=6, column=1, pady=5, padx=(10, 0))
+        email_entry = ttk.Entry(personal_frame, textvariable=self.reg_email_var, style="Modern.TEntry")
+        email_entry.grid(row=3, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 15))
 
-        ttk.Label(self.main_frame, text="Employee ID:").grid(row=7, column=0, sticky=tk.W, pady=5)
+        # Employee ID field
+        employee_label = ttk.Label(personal_frame, text="🆔 Employee ID", style="Form.TLabel")
+        employee_label.grid(row=4, column=0, sticky=tk.W, pady=(0, 8))
+
         self.reg_employee_id_var = tk.StringVar()
-        employee_entry = ttk.Entry(self.main_frame, textvariable=self.reg_employee_id_var, width=30)
-        employee_entry.grid(row=7, column=1, pady=5, padx=(10, 0))
+        employee_entry = ttk.Entry(personal_frame, textvariable=self.reg_employee_id_var, style="Modern.TEntry")
+        employee_entry.grid(row=5, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 20))
 
-        # Buttons
-        button_frame = ttk.Frame(self.main_frame)
-        button_frame.grid(row=8, column=0, columnspan=2, pady=20)
+        # Buttons section
+        button_frame = ttk.Frame(form_container, style="Card.TFrame")
+        button_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(10, 20))
+        button_frame.columnconfigure(0, weight=1)
 
-        register_btn = ttk.Button(button_frame, text="Register", command=self.do_user_registration)
-        register_btn.grid(row=0, column=0, padx=(0, 10))
+        register_btn = ttk.Button(
+            button_frame,
+            text="✅ Create Account",
+            style="Success.TButton",
+            command=self.do_user_registration
+        )
+        register_btn.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
 
-        back_btn = ttk.Button(button_frame, text="Back to Login", command=self.show_login)
-        back_btn.grid(row=0, column=1)
+        login_btn = ttk.Button(
+            button_frame,
+            text="🔐 Already have an account? Sign In",
+            style="TButton",
+            command=self.show_login
+        )
+        login_btn.grid(row=1, column=0, sticky=(tk.W, tk.E))
 
         # Status label
         self.reg_status_var = tk.StringVar()
-        status_label = ttk.Label(self.main_frame, textvariable=self.reg_status_var, foreground="red")
-        status_label.grid(row=9, column=0, columnspan=2, pady=(10, 0))
+        status_label = ttk.Label(
+            form_container,
+            textvariable=self.reg_status_var,
+            style="Status.TLabel",
+            foreground=self.colors['error']
+        )
+        status_label.grid(row=3, column=0, pady=(10, 20))
 
     def do_user_registration(self):
         """Perform user registration"""
@@ -376,8 +808,70 @@ Last updated: September 2025
             result = response.json()
             self.current_user = result
 
-            self.reg_status_var.set("Registration successful! Proceeding to device setup...")
-            self.root.after(1000, self.show_device_registration)
+            # Now register the device automatically
+            logger.info("[USER REGISTRATION] User registered successfully, now registering device...")
+            
+            # Get device info
+            device_info = self.get_device_info()
+            
+            # Register device
+            device_url = f"{self.backend_url}{self.api_prefix}/devices/register"
+            device_data = {
+                "employee_id": employee_id,
+                "device_name": f"{fullname}'s Device",
+                "device_number": device_info.get('device_number', ''),
+                "device_type": "windows_agent",
+                "device_info": {
+                    "os": device_info.get('os', 'Unknown'),
+                    "os_version": device_info.get('os_version', 'Unknown'),
+                    "architecture": device_info.get('architecture', 'Unknown'),
+                    "hostname": device_info.get('hostname', 'Unknown'),
+                    "mac_address": device_info.get('mac_address', 'Unknown')
+                }
+            }
+
+            # For device registration, we need authentication, but since we just registered the user,
+            # we need to login first to get the token
+            login_url = f"{self.backend_url}{self.api_prefix}/auth/login"
+            login_data = {"username": username, "password": password}
+            
+            login_response = requests.post(login_url, data=login_data)
+            if login_response.status_code == 200:
+                login_result = login_response.json()
+                self.access_token = login_result.get("access_token")
+                self.current_user = login_result
+                
+                # Now register device with authentication
+                headers = {"Authorization": f"Bearer {self.access_token}"}
+                device_response = requests.post(device_url, json=device_data, headers=headers)
+                
+                if device_response.status_code == 201:
+                    device_result = device_response.json()
+                    logger.info(f"[DEVICE REGISTRATION] Device registered successfully: {device_result}")
+                    
+                    # Save configuration
+                    config = {
+                        "device_id": device_result['device_id'],
+                        "api_key": device_result['api_key'],
+                        "employee_id": employee_id,
+                        "device_name": device_data['device_name'],
+                        "device_number": device_data['device_number'],
+                        "username": username,
+                        "user_id": self.current_user.get('user_id'),
+                        "role": "employee",
+                        "registered_at": datetime.now().isoformat(),
+                        "backend_url": self.backend_url
+                    }
+                    self.save_config(config)
+                    
+                    self.reg_status_var.set("Registration complete! Welcome to StressSense.")
+                    self.root.after(1000, self.show_main_menu)
+                else:
+                    logger.error(f"[DEVICE REGISTRATION] Failed: {device_response.text}")
+                    self.reg_status_var.set("User registered but device registration failed. Please contact support.")
+            else:
+                logger.error(f"[LOGIN] Auto-login failed: {login_response.text}")
+                self.reg_status_var.set("User registered but login failed. Please login manually.")
 
         except requests.exceptions.RequestException as e:
             self.reg_status_var.set(f"Registration failed: {str(e)}")
@@ -388,43 +882,113 @@ Last updated: September 2025
         """Show device registration screen"""
         self.clear_frame()
 
-        # Title
-        title_label = ttk.Label(self.main_frame, text="Device Registration",
-                               font=("Arial", 14, "bold"))
-        title_label.grid(row=0, column=0, columnspan=2, pady=(0, 20))
+        # Header section
+        header_frame = ttk.Frame(self.main_frame, style="Main.TFrame")
+        header_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(20, 15))
+        header_frame.columnconfigure(0, weight=1)
 
-        # Info
-        info_text = f"Logged in as: {self.current_user.get('username', 'Unknown')}\n\n"
-        info_text += "Please register this device for stress monitoring."
+        title_label = ttk.Label(header_frame, text="📝 Complete Registration",
+                               style="Title.TLabel")
+        title_label.grid(row=0, column=0, pady=(0, 5))
 
-        info_label = ttk.Label(self.main_frame, text=info_text, justify=tk.LEFT)
-        info_label.grid(row=1, column=0, columnspan=2, pady=(0, 20))
+        subtitle_label = ttk.Label(header_frame, text="Register this device for stress monitoring",
+                                  style="Subtitle.TLabel")
+        subtitle_label.grid(row=1, column=0)
+
+        # Main content card with scrollable area
+        content_frame = ttk.Frame(self.main_frame, style="Card.TFrame", padding="20")
+        content_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=40, pady=(0, 20))
+        content_frame.columnconfigure(0, weight=1)
+        content_frame.rowconfigure(0, weight=1)
+
+        # Create scrollable content area
+        scrollable_content = self.create_scrollable_frame(content_frame)
+
+        # Info section
+        info_frame = ttk.Frame(scrollable_content, style="Card.TFrame")
+        info_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(10, 20))
+
+        info_text = f"👤 Logged in as: {self.current_user.get('username', 'Unknown')}\n\n"
+        info_text += "📋 Please complete your registration and register this device for stress monitoring."
+
+        info_label = ttk.Label(info_frame, text=info_text,
+                              font=("Segoe UI", 11),
+                              foreground=self.colors['text'],
+                              background=self.colors['surface'],
+                              justify=tk.LEFT)
+        info_label.grid(row=0, column=0, sticky=(tk.W, tk.E))
 
         # Get device info
         device_info = self.get_device_info()
 
-        # Registration form
-        ttk.Label(self.main_frame, text="Employee ID:").grid(row=2, column=0, sticky=tk.W, pady=5)
+        # User information section
+        user_frame = ttk.LabelFrame(scrollable_content, text="👤 User Information", style="Card.TLabelframe", padding="15")
+        user_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 20))
+        user_frame.columnconfigure(1, weight=1)
+
+        # Username field
+        username_label = ttk.Label(user_frame, text="Username", style="Form.TLabel")
+        username_label.grid(row=0, column=0, sticky=tk.W, pady=(0, 8))
+
+        self.reg_username_var = tk.StringVar()
+        self.reg_username_var.set(self.current_user.get('username', ''))
+        username_entry = ttk.Entry(user_frame, textvariable=self.reg_username_var, style="Modern.TEntry")
+        username_entry.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 15))
+
+        # Full Name field
+        fullname_label = ttk.Label(user_frame, text="Full Name", style="Form.TLabel")
+        fullname_label.grid(row=2, column=0, sticky=tk.W, pady=(0, 8))
+
+        self.reg_fullname_var = tk.StringVar()
+        self.reg_fullname_var.set(self.current_user.get('full_name', ''))
+        fullname_entry = ttk.Entry(user_frame, textvariable=self.reg_fullname_var, style="Modern.TEntry")
+        fullname_entry.grid(row=3, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 15))
+
+        # Email field
+        email_label = ttk.Label(user_frame, text="Email Address", style="Form.TLabel")
+        email_label.grid(row=4, column=0, sticky=tk.W, pady=(0, 8))
+
+        self.reg_email_var = tk.StringVar()
+        self.reg_email_var.set(self.current_user.get('email', ''))
+        email_entry = ttk.Entry(user_frame, textvariable=self.reg_email_var, style="Modern.TEntry")
+        email_entry.grid(row=5, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 15))
+
+        # Device information section
+        device_frame = ttk.LabelFrame(scrollable_content, text="🖥️ Device Information", style="Card.TLabelframe", padding="15")
+        device_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(0, 20))
+        device_frame.columnconfigure(1, weight=1)
+
+        # Employee ID field
+        employee_label = ttk.Label(device_frame, text="Employee ID", style="Form.TLabel")
+        employee_label.grid(row=0, column=0, sticky=tk.W, pady=(0, 8))
+
         self.employee_id_var = tk.StringVar()
         self.employee_id_var.set(self.current_user.get('employee_id', ''))
-        employee_entry = ttk.Entry(self.main_frame, textvariable=self.employee_id_var, width=30)
-        employee_entry.grid(row=2, column=1, pady=5, padx=(10, 0))
+        employee_entry = ttk.Entry(device_frame, textvariable=self.employee_id_var, style="Modern.TEntry")
+        employee_entry.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 15))
 
-        ttk.Label(self.main_frame, text="Device Name:").grid(row=3, column=0, sticky=tk.W, pady=5)
+        # Device Name field
+        device_name_label = ttk.Label(device_frame, text="Device Name", style="Form.TLabel")
+        device_name_label.grid(row=2, column=0, sticky=tk.W, pady=(0, 8))
+
         self.device_name_var = tk.StringVar()
         self.device_name_var.set(f"{self.current_user.get('username', 'User')}'s Device")
-        device_entry = ttk.Entry(self.main_frame, textvariable=self.device_name_var, width=30)
-        device_entry.grid(row=3, column=1, pady=5, padx=(10, 0))
+        device_entry = ttk.Entry(device_frame, textvariable=self.device_name_var, style="Modern.TEntry")
+        device_entry.grid(row=3, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 15))
 
-        ttk.Label(self.main_frame, text="Device Number:").grid(row=4, column=0, sticky=tk.W, pady=5)
+        # Device Number field
+        device_number_label = ttk.Label(device_frame, text="Device Number", style="Form.TLabel")
+        device_number_label.grid(row=4, column=0, sticky=tk.W, pady=(0, 8))
+
         self.device_number_var = tk.StringVar()
         self.device_number_var.set(device_info.get('device_number', ''))
-        device_number_entry = ttk.Entry(self.main_frame, textvariable=self.device_number_var, width=30)
-        device_number_entry.grid(row=4, column=1, pady=5, padx=(10, 0))
+        device_number_entry = ttk.Entry(device_frame, textvariable=self.device_number_var, style="Modern.TEntry")
+        device_number_entry.grid(row=5, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 20))
 
-        # Device info display
-        device_info_frame = ttk.LabelFrame(self.main_frame, text="Device Information", padding="10")
-        device_info_frame.grid(row=5, column=0, columnspan=2, pady=(10, 20), sticky=(tk.W, tk.E))
+        # System information display
+        system_frame = ttk.LabelFrame(scrollable_content, text="🔧 System Information", style="Card.TLabelframe", padding="15")
+        system_frame.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=(0, 20))
+        system_frame.columnconfigure(0, weight=1)
 
         device_info_text = f"Device Name: {self.device_name_var.get()}\n"
         device_info_text += f"Device Number: {device_info.get('device_number', 'Unknown')}\n"
@@ -434,39 +998,64 @@ Last updated: September 2025
         device_info_text += f"Hostname: {device_info.get('hostname', 'Unknown')}\n"
         device_info_text += f"MAC Address: {device_info.get('mac_address', 'Unknown')}"
 
-        device_info_label = ttk.Label(device_info_frame, text=device_info_text, justify=tk.LEFT)
+        device_info_label = ttk.Label(system_frame, text=device_info_text,
+                                     font=("Segoe UI", 9),
+                                     foreground=self.colors['text_secondary'],
+                                     background=self.colors['surface'],
+                                     justify=tk.LEFT)
         device_info_label.grid(row=0, column=0, sticky=(tk.W, tk.E))
 
         # Store reference to device info label for updates
         self.device_info_label = device_info_label
 
-        # Buttons
-        button_frame = ttk.Frame(self.main_frame)
-        button_frame.grid(row=6, column=0, columnspan=2, pady=20)
+        # Buttons section - place at bottom of scrollable area
+        button_frame = ttk.Frame(scrollable_content, style="Card.TFrame")
+        button_frame.grid(row=4, column=0, sticky=(tk.W, tk.E), pady=(10, 20))
 
-        register_btn = ttk.Button(button_frame, text="Register Device", command=self.do_register_device)
-        register_btn.grid(row=0, column=0, padx=(0, 10))
+        register_btn = ttk.Button(
+            button_frame,
+            text="✅ Complete Registration",
+            style="Success.TButton",
+            command=self.do_register_device
+        )
+        register_btn.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
 
-        logout_btn = ttk.Button(button_frame, text="Logout", command=self.logout)
-        logout_btn.grid(row=0, column=1)
+        logout_btn = ttk.Button(
+            button_frame,
+            text="🚪 Logout",
+            style="Secondary.TButton",
+            command=self.logout
+        )
+        logout_btn.grid(row=1, column=0, sticky=(tk.W, tk.E))
 
         # Status label
         self.register_status_var = tk.StringVar()
-        status_label = ttk.Label(self.main_frame, textvariable=self.register_status_var, foreground="red")
-        status_label.grid(row=7, column=0, columnspan=2, pady=(10, 0))
+        status_label = ttk.Label(
+            scrollable_content,
+            textvariable=self.register_status_var,
+            style="Status.TLabel",
+            foreground=self.colors['error']
+        )
+        status_label.grid(row=5, column=0, pady=(10, 20))
 
     def do_register_device(self):
-        """Register the device"""
+        """Complete registration - register device"""
+        # Get form data
+        username = self.reg_username_var.get().strip()
+        fullname = self.reg_fullname_var.get().strip()
+        email = self.reg_email_var.get().strip()
         employee_id = self.employee_id_var.get().strip()
         device_name = self.device_name_var.get().strip()
         device_number = self.device_number_var.get().strip()
 
-        if not employee_id:
-            self.register_status_var.set("Please enter an Employee ID.")
+        # Validation
+        if not all([username, fullname, email, employee_id]):
+            self.register_status_var.set("Please fill in all required fields.")
             return
 
+        # Use the entered device name or default
         if not device_name:
-            device_name = f"{self.current_user.get('username', 'User')}'s Device"
+            device_name = f"{username}'s Device"
 
         if not device_number:
             device_number = self.get_device_info().get('device_number', 'Unknown')
@@ -516,7 +1105,7 @@ Last updated: September 2025
                 "employee_id": employee_id,
                 "device_name": device_name,
                 "device_number": device_number,
-                "username": self.current_user.get('username'),
+                "username": username,
                 "user_id": self.current_user.get('user_id'),
                 "role": "employee",
                 "registered_at": datetime.now().isoformat(),
@@ -524,56 +1113,13 @@ Last updated: September 2025
             }
             self.save_config(config)
 
-            self.register_status_var.set("Device registered successfully!")
+            self.register_status_var.set("Registration completed successfully!")
             self.root.after(1000, self.show_main_menu)
 
         except requests.exceptions.RequestException as e:
             self.register_status_var.set(f"Registration failed: {str(e)}")
         except Exception as e:
             self.register_status_var.set(f"Error: {str(e)}")
-
-    def get_device_info(self):
-        """Get device information"""
-        try:
-            import platform
-            import socket
-            import uuid
-
-            device_info = {
-                "os": platform.system(),
-                "os_version": platform.version(),
-                "architecture": platform.machine(),
-                "hostname": socket.gethostname(),
-                "device_number": str(uuid.getnode()),  # MAC address as unique identifier
-                "mac_address": ':'.join(['{:02x}'.format((uuid.getnode() >> elements) & 0xff) for elements in range(0,8*6,8)][::-1])
-            }
-            return device_info
-        except Exception as e:
-            return {
-                "os": "Unknown",
-                "os_version": "Unknown",
-                "architecture": "Unknown",
-                "hostname": "Unknown",
-                "device_number": "Unknown",
-                "mac_address": "Unknown"
-            }
-
-    def update_device_info_display(self):
-        """Update the device information display"""
-        try:
-            device_info = self.get_device_info()
-            device_info_text = f"Device Name: {self.device_name_var.get()}\n"
-            device_info_text += f"Device Number: {self.device_number_var.get() or device_info.get('device_number', 'Unknown')}\n"
-            device_info_text += f"OS: {device_info.get('os', 'Unknown')}\n"
-            device_info_text += f"OS Version: {device_info.get('os_version', 'Unknown')}\n"
-            device_info_text += f"Architecture: {device_info.get('architecture', 'Unknown')}\n"
-            device_info_text += f"Hostname: {device_info.get('hostname', 'Unknown')}\n"
-            device_info_text += f"MAC Address: {device_info.get('mac_address', 'Unknown')}"
-
-            if hasattr(self, 'device_info_label'):
-                self.device_info_label.config(text=device_info_text)
-        except Exception as e:
-            print(f"Error updating device info display: {e}")
 
     def show_main_menu(self):
         """Show main menu"""
@@ -582,66 +1128,100 @@ Last updated: September 2025
         # Load config
         config = self.load_config()
 
-        # Title
-        title_label = ttk.Label(self.main_frame, text="StressSense Control Panel",
-                               font=("Arial", 16, "bold"))
-        title_label.grid(row=0, column=0, columnspan=2, pady=(0, 20))
+        # Header section
+        header_frame = ttk.Frame(self.main_frame, style="Main.TFrame")
+        header_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(20, 15))
+        header_frame.columnconfigure(0, weight=1)
 
-        # Status info
+        title_label = ttk.Label(header_frame, text="Control Panel",
+                                   style="Title.TLabel")
+        title_label.grid(row=0, column=0, pady=(0, 5))
+
+        subtitle_label = ttk.Label(header_frame, text="Manage your StressSense monitoring system",
+                                  style="Subtitle.TLabel")
+        subtitle_label.grid(row=1, column=0)
+
+        # Main content area with scrollable content
+        content_frame = ttk.Frame(self.main_frame, style="Card.TFrame", padding="20")
+        content_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=40, pady=(0, 20))
+        content_frame.columnconfigure(0, weight=1)
+        content_frame.rowconfigure(0, weight=1)
+
+        # Create scrollable content area
+        scrollable_content = self.create_scrollable_frame(content_frame)
+
+        # Status info card
+        status_frame = ttk.LabelFrame(scrollable_content, text="System Status", style="Card.TLabelframe", padding="20")
+        status_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(10, 30))
+        status_frame.columnconfigure(0, weight=1)
+
         if config:
             status_text = f"User: {config.get('username', 'Unknown')}\n"
             status_text += f"Device: {config.get('device_name', 'Unknown')}\n"
             status_text += f"Device Number: {config.get('device_number', 'Unknown')}\n"
             status_text += f"Employee ID: {config.get('employee_id', 'Unknown')}\n"
-            status_text += f"Status: {'Registered' if config else 'Not Registered'}"
+            status_text += f"✅ Status: Active & Registered"
+            status_color = self.colors['success']
         else:
-            status_text = "Status: Not Registered"
+            status_text = "❌ Status: Not Registered"
+            status_color = self.colors['error']
 
-        status_label = ttk.Label(self.main_frame, text=status_text, justify=tk.LEFT)
-        status_label.grid(row=1, column=0, columnspan=2, pady=(0, 20))
+        status_label = ttk.Label(status_frame, text=status_text,
+                                font=("Segoe UI", 11),
+                                foreground=status_color,
+                                background=self.colors['surface'],
+                                justify=tk.LEFT)
+        status_label.grid(row=0, column=0, sticky=(tk.W, tk.E))
 
-        # Buttons
+        # Service control section
         if config:
-            # Service control buttons
-            service_frame = ttk.LabelFrame(self.main_frame, text="Service Control", padding="10")
-            service_frame.grid(row=2, column=0, columnspan=2, pady=(0, 20), sticky=(tk.W, tk.E))
+            service_frame = ttk.LabelFrame(scrollable_content, text="Service Management", style="Card.TLabelframe", padding="20")
+            service_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 30))
 
-            install_btn = ttk.Button(service_frame, text="Install Service", command=self.install_service)
+            # Service buttons in a grid
+            install_btn = ttk.Button(service_frame, text="📦 Install Service",
+                                   style="Secondary.TButton", command=self.install_service)
             install_btn.grid(row=0, column=0, padx=(0, 10), pady=5)
 
-            start_btn = ttk.Button(service_frame, text="Start Service", command=self.start_service)
+            start_btn = ttk.Button(service_frame, text="▶️ Start Service",
+                                 style="Success.TButton", command=self.start_service)
             start_btn.grid(row=0, column=1, padx=(0, 10), pady=5)
 
-            stop_btn = ttk.Button(service_frame, text="Stop Service", command=self.stop_service)
+            stop_btn = ttk.Button(service_frame, text="⏹️ Stop Service",
+                                style="Secondary.TButton", command=self.stop_service)
             stop_btn.grid(row=0, column=2, padx=(0, 10), pady=5)
 
-            uninstall_btn = ttk.Button(service_frame, text="Uninstall Service", command=self.uninstall_service)
+            uninstall_btn = ttk.Button(service_frame, text="🗑️ Uninstall Service",
+                                     style="Secondary.TButton", command=self.uninstall_service)
             uninstall_btn.grid(row=0, column=3, pady=5)
 
-            # Test button
-            test_frame = ttk.LabelFrame(self.main_frame, text="Testing", padding="10")
-            test_frame.grid(row=3, column=0, columnspan=2, pady=(0, 20), sticky=(tk.W, tk.E))
+            # Testing section
+            test_frame = ttk.LabelFrame(scrollable_content, text="🧪 Testing & Diagnostics", style="Card.TLabelframe", padding="20")
+            test_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(0, 30))
 
-            test_btn = ttk.Button(test_frame, text="Test Stress Detection", command=self.test_detection)
-            test_btn.grid(row=0, column=0, padx=(0, 10))
+            test_btn = ttk.Button(test_frame, text="🔍 Test Stress Detection",
+                                style="Primary.TButton", command=self.test_detection)
+            test_btn.grid(row=0, column=0, padx=(0, 10), pady=5)
 
-            # Status label
+            # Status label for test results
             self.service_status_var = tk.StringVar()
             self.service_status_var.set("Ready")
-            status_label = ttk.Label(test_frame, textvariable=self.service_status_var)
-            status_label.grid(row=0, column=1, padx=(10, 0))
+            status_label = ttk.Label(test_frame, textvariable=self.service_status_var,
+                                   font=("Segoe UI", 10),
+                                   background=self.colors['surface'])
+            status_label.grid(row=0, column=1, padx=(10, 0), pady=5)
 
-            bottom_row = 4
-
-        # Bottom buttons
-        bottom_frame = ttk.Frame(self.main_frame)
-        bottom_frame.grid(row=bottom_row, column=0, columnspan=2, pady=(20, 0))
+        # Bottom actions - place at bottom of scrollable area
+        bottom_frame = ttk.Frame(scrollable_content, style="Card.TFrame")
+        bottom_frame.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=(20, 20))
 
         if config:
-            re_register_btn = ttk.Button(bottom_frame, text="Re-register Device", command=self.re_register)
+            re_register_btn = ttk.Button(bottom_frame, text="🔄 Re-register Device",
+                                       style="Secondary.TButton", command=self.re_register)
             re_register_btn.grid(row=0, column=0, padx=(0, 10))
 
-        logout_btn = ttk.Button(bottom_frame, text="Logout", command=self.logout)
+        logout_btn = ttk.Button(bottom_frame, text="🚪 Logout",
+                              style="Secondary.TButton", command=self.logout)
         logout_btn.grid(row=0, column=1)
 
         # Start auto analysis if device is registered
@@ -707,17 +1287,18 @@ Last updated: September 2025
 
         def run_test():
             try:
-                # Import here to avoid issues if not installed
-                try:
-                    from stress_analysis import analyze_image
-                except ImportError as import_error:
-                    logger.error(f"[TEST DETECTION] Failed to import analyze_image: {str(import_error)}")
+                # Check if stress analysis is available
+                if analyze_image is None:
+                    logger.error("[TEST DETECTION] analyze_image function not available")
                     self.service_status_var.set("Analysis module not available")
                     return
                     
                 import cv2
                 import base64
                 from datetime import datetime
+
+                # Load emotion stress map
+                get_emotion_stress_map()
 
                 # Capture image with better error handling
                 cap = cv2.VideoCapture(0)
@@ -727,19 +1308,21 @@ Last updated: September 2025
                     return
 
                 # Try multiple capture attempts
+                max_attempts = int(os.getenv("MAX_CAPTURE_ATTEMPTS", "3"))
+                retry_delay = float(os.getenv("CAPTURE_RETRY_DELAY_SECONDS", "0.5"))
                 ret = False
                 frame = None
-                for attempt in range(3):
+                for attempt in range(max_attempts):
                     ret, frame = cap.read()
                     if ret and frame is not None:
                         break
                     logger.warning(f"[IMAGE CAPTURE] Capture attempt {attempt + 1} failed, retrying...")
-                    time.sleep(0.5)  # Wait before retry
+                    time.sleep(retry_delay)  # Configurable wait before retry
                 
                 cap.release()
 
                 if not ret or frame is None:
-                    logger.error("[IMAGE CAPTURE] Failed to capture image after 3 attempts")
+                    logger.error(f"[IMAGE CAPTURE] Failed to capture image after {max_attempts} attempts")
                     self.service_status_var.set("Failed to capture image")
                     return
 
@@ -773,6 +1356,10 @@ Last updated: September 2025
                 # Analyze locally
                 result = analyze_image(img_base64)
 
+                if result is None or not isinstance(result, dict):
+                    self.service_status_var.set("Analysis failed")
+                    return
+
                 if "error" in result:
                     self.service_status_var.set(f"Error: {result['error']}")
                     return
@@ -780,7 +1367,7 @@ Last updated: September 2025
                 # Show local result first
                 emotion = result.get('emotion', 'Unknown')
                 stress_level = result.get('stress_level', 'Unknown')
-                confidence = result.get('confidence', 0)
+                confidence = result.get('confidence', 0) or 0
                 local_result = f"Detected: {emotion} -> {stress_level} ({confidence:.1f}%)"
 
                 logger.info(f"[LOCAL ANALYSIS] Result: {local_result}")
@@ -816,7 +1403,7 @@ Last updated: September 2025
                         "stress_level": stress_level,
                         "confidence": float(confidence * 100),  # Convert to 0-100 scale
                         "timestamp": datetime.now().isoformat(),
-                        "face_quality": result.get('face_quality')
+                        "face_quality": result.get('face_quality', {})
                     }
 
                     print(f"[FRONTEND] Sending stress data to backend: {submission_data}")
@@ -860,14 +1447,25 @@ Last updated: September 2025
     def re_register(self):
         """Re-register device"""
         if messagebox.askyesno("Confirm", "This will unregister the current device. Continue?"):
-            # Delete config
-            config_path = os.path.join(os.path.dirname(__file__), self.config_file)
+            # Delete config using the same path logic as save_config()
+            config_path = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), self.config_file)
             if os.path.exists(config_path):
                 os.remove(config_path)
+                logger.info("Config file deleted for re-registration")
 
-            # Go back to login
+            # Clear session data
             self.current_user = None
             self.access_token = None
+            
+            # Remove session file
+            if os.path.exists(self.session_file):
+                try:
+                    os.remove(self.session_file)
+                    logger.info("Session file removed")
+                except Exception as e:
+                    logger.error(f"Error removing session file: {e}")
+            
+            # Go back to login screen
             self.show_login()
 
     def logout(self):
@@ -884,31 +1482,137 @@ Last updated: September 2025
         
         self.current_user = None
         self.access_token = None
+        
+        # Remove session file
+        if os.path.exists(self.session_file):
+            try:
+                os.remove(self.session_file)
+                logger.info("Session file removed")
+            except Exception as e:
+                logger.error(f"Error removing session file: {e}")
+        
         self.show_terms_conditions()
 
     def load_config(self):
         """Load device configuration"""
-        config_path = os.path.join(os.path.dirname(__file__), self.config_file)
-        if os.path.exists(config_path):
-            try:
-                with open(config_path, 'r') as f:
-                    return json.load(f)
-            except:
-                return None
-        return None
+        # Check if running in bundled environment
+        is_bundled = getattr(sys, '_MEIPASS', None) is not None
+        print(f"[CONFIG] Running in bundled environment: {is_bundled}")
+
+        if is_bundled:
+            # In bundled app, only look in the executable's directory
+            bundle_dir = os.path.dirname(sys.executable)
+            config_path = os.path.join(bundle_dir, self.config_file)
+            print(f"[CONFIG] Looking for config in bundled dir: {config_path}")
+            if os.path.exists(config_path):
+                try:
+                    with open(config_path, 'r') as f:
+                        config = json.load(f)
+                        print(f"[CONFIG] Found config in bundled app: {config.get('device_id', 'unknown')}")
+                        return config
+                except Exception as e:
+                    print(f"[CONFIG] Error loading bundled config: {e}")
+                    return None
+            print("[CONFIG] No config found in bundled app")
+            return None
+        else:
+            # Development mode - search multiple locations
+            print("[CONFIG] Running in development mode")
+            script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+            parent_dir = os.path.abspath(os.path.join(script_dir, '..'))
+            grandparent_dir = os.path.abspath(os.path.join(script_dir, '..', '..'))
+            for base_dir in [os.getcwd(), script_dir, parent_dir, grandparent_dir]:
+                config_path = os.path.join(base_dir, self.config_file)
+                print(f"[CONFIG] Checking: {config_path}")
+                if os.path.exists(config_path):
+                    try:
+                        with open(config_path, 'r') as f:
+                            config = json.load(f)
+                            print(f"[CONFIG] Found config in dev mode: {config.get('device_id', 'unknown')}")
+                            return config
+                    except Exception as e:
+                        print(f"[CONFIG] Error loading dev config: {e}")
+                        return None
+            print("[CONFIG] No config found in development mode")
+            return None
 
     def save_config(self, config):
         """Save device configuration"""
-        config_path = os.path.join(os.path.dirname(__file__), self.config_file)
+        if getattr(sys, '_MEIPASS', None):
+            # In bundled app, save in the executable's directory
+            config_path = os.path.join(os.path.dirname(sys.executable), self.config_file)
+        else:
+            # Development mode - save in script directory
+            config_path = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), self.config_file)
+
         with open(config_path, 'w') as f:
             json.dump(config, f, indent=2)
+
+    def load_session(self):
+        """Load user session from file"""
+        try:
+            if os.path.exists(self.session_file):
+                with open(self.session_file, 'r') as f:
+                    session_data = json.load(f)
+                
+                # Check if session is still valid (not expired)
+                if self.validate_session(session_data):
+                    self.current_user = session_data.get('user')
+                    self.access_token = session_data.get('access_token')
+                    logger.info(f"Loaded existing session for user: {self.current_user.get('username', 'Unknown')}")
+                    # Auto-navigate to main menu
+                    self.root.after(100, self.show_main_menu)
+                else:
+                    logger.info("Session expired, user needs to login again")
+                    os.remove(self.session_file)  # Remove expired session
+        except Exception as e:
+            logger.error(f"Error loading session: {e}")
+
+    def save_session(self, user_data, access_token):
+        """Save user session to file"""
+        try:
+            session_data = {
+                'user': user_data,
+                'access_token': access_token,
+                'timestamp': datetime.now().isoformat()
+            }
+            with open(self.session_file, 'w') as f:
+                json.dump(session_data, f, indent=2)
+            logger.info("Session saved successfully")
+        except Exception as e:
+            logger.error(f"Error saving session: {e}")
+
+    def validate_session(self, session_data):
+        """Validate if session is still active"""
+        try:
+            # Check if access token exists
+            token = session_data.get('access_token')
+            if not token:
+                return False
+            
+            # For now, just check if token exists and session is not too old
+            # In a production app, you'd validate the JWT token properly
+            timestamp = session_data.get('timestamp')
+            if timestamp:
+                session_time = datetime.fromisoformat(timestamp)
+                # Session valid for 24 hours
+                if datetime.now() - session_time > timedelta(hours=24):
+                    logger.info("Session is too old (24+ hours)")
+                    return False
+            
+            return True
+        except Exception as e:
+            logger.error(f"Error validating session: {e}")
+            return False
 
     def start_auto_analysis(self):
         """Start automatic stress analysis every 2 minutes (dev mode)"""
         if hasattr(self, 'auto_timer') and self.auto_timer:
             self.auto_timer.cancel()
 
-        self.auto_timer = threading.Timer(120, self.run_auto_analysis)  # 120 seconds = 2 minutes (dev mode)
+        auto_interval = int(os.getenv("AUTO_ANALYSIS_INTERVAL_SECONDS", "120"))
+        if auto_interval > 0:
+            self.auto_timer = threading.Timer(auto_interval, self.run_auto_analysis)  # Configurable interval
         self.auto_timer.start()
         logger.info("[AUTO ANALYSIS] Started automatic stress analysis (every 2 minutes - dev mode)")
 
@@ -941,7 +1645,8 @@ Last updated: September 2025
             }
 
             logger.debug(f"[REMOTE CHECK] Checking for remote requests: {url}")
-            response = requests.get(url, headers=headers, timeout=10)  # Add timeout
+            timeout_seconds = int(os.getenv("REQUEST_TIMEOUT_SECONDS", "10"))
+            response = requests.get(url, headers=headers, timeout=timeout_seconds)  # Configurable timeout
 
             if response.status_code == 200:
                 request_data = response.json()
@@ -980,11 +1685,9 @@ Last updated: September 2025
 
         def run_check():
             try:
-                # Import here to avoid issues if not installed
-                try:
-                    from stress_analysis import analyze_image, analyze_image_array
-                except ImportError as import_error:
-                    logger.error(f"[REMOTE STRESS] Failed to import stress_analysis: {str(import_error)}")
+                # Check if stress analysis is available
+                if analyze_image is None or analyze_image_array is None:
+                    logger.error("[REMOTE STRESS] stress_analysis module not available")
                     return
                 import cv2
                 from datetime import datetime
@@ -1115,16 +1818,17 @@ Last updated: September 2025
         """Run stress detection in background"""
         def run_test():
             try:
-                # Import here to avoid issues if not installed
-                try:
-                    from stress_analysis import analyze_image, analyze_image_array
-                except ImportError as import_error:
-                    logger.error(f"[AUTO ANALYSIS] Failed to import stress_analysis: {str(import_error)}")
+                # Check if stress analysis is available
+                if analyze_image is None or analyze_image_array is None:
+                    logger.error("[AUTO ANALYSIS] stress_analysis module not available")
                     return
                     
                 import cv2
                 import base64
                 from datetime import datetime
+
+                # Load emotion stress map
+                get_emotion_stress_map()
 
                 # Capture image with better error handling
                 cap = cv2.VideoCapture(0)
@@ -1157,6 +1861,14 @@ Last updated: September 2025
 
                 # Analyze stress (no need to convert to base64 for local analysis)
                 result = analyze_image_array(frame)
+
+                if result is None:
+                    logger.warning("[AUTO ANALYSIS] Analysis returned None, skipping")
+                    return
+
+                if not isinstance(result, dict):
+                    logger.warning(f"[AUTO ANALYSIS] Analysis returned {type(result)}, expected dict, skipping")
+                    return
 
                 logger.info(f"[AUTO ANALYSIS] Analysis result: {result}")
                 if result:
@@ -1207,10 +1919,10 @@ Last updated: September 2025
                         }
                         data = {
                             "emotion": api_emotion,
-                            "stress_level": result.get('stress_level'),
-                            "confidence": result.get('confidence', 0) * 100,  # Convert to 0-100 scale
+                            "stress_level": result.get('stress_level', 'unknown'),
+                            "confidence": (result.get('confidence', 0) or 0) * 100,  # Convert to 0-100 scale
                             "timestamp": datetime.now().isoformat(),
-                            "face_quality": result.get('face_quality')
+                            "face_quality": result.get('face_quality', {})
                         }
 
                         response = requests.post(url, json=data, headers=headers)
@@ -1227,6 +1939,20 @@ Last updated: September 2025
         thread = threading.Thread(target=run_test)
         thread.daemon = True
         thread.start()
+
+    def get_device_info(self):
+        """Collect and return basic device information"""
+        import platform, uuid
+        mac_num = uuid.getnode()
+        mac = ':'.join(f"{(mac_num >> ele) & 0xff:02x}" for ele in range(0,48,8)[::-1])
+        return {
+            'device_number': str(mac_num),
+            'os': platform.system(),
+            'os_version': platform.version(),
+            'architecture': platform.machine(),
+            'hostname': platform.node(),
+            'mac_address': mac
+        }
 
 def main():
     root = tk.Tk()

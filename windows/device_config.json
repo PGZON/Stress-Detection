@@ -1,12 +1,12 @@
 {
-  "device_id": "device-b6f08f34",
-  "api_key": "4aa24833bd2da363a55eac6437003651b8278e88f42e7ae4a3bd545cd4512c7d",
-  "employee_id": "111",
-  "device_name": "User's Device",
+  "device_id": "device-f12a83e2",
+  "api_key": "f9efbcb86587e7e10382e0d4007778577e8baa40c9049b50bd59fff7e1d24c47",
+  "employee_id": "101",
+  "device_name": "Prathamesh Gadgil's Device",
   "device_number": "66115050701458",
-  "username": null,
-  "user_id": "92939c1c-e248-4da2-9fdc-e8e8a9469ad5",
+  "username": "Prathamesh",
+  "user_id": "81098b1e-dbd1-4f36-bdaa-73c0361225e0",
   "role": "employee",
-  "registered_at": "2025-09-20T14:50:58.207826",
+  "registered_at": "2025-09-21T21:04:41.648619",
   "backend_url": "http://localhost:8000"
 }

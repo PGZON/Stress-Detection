@@ -36,6 +36,8 @@ class Token(BaseModel):
     user_id: str
     role: RoleEnum
     employee_id: Optional[str] = None
+    full_name: Optional[str] = None
+    email: Optional[str] = None
 
 class TokenData(BaseModel):
     user_id: Optional[str] = None
@@ -45,6 +47,8 @@ class TokenData(BaseModel):
 class UserBase(BaseModel):
     username: str
     role: RoleEnum
+    full_name: Optional[str] = None
+    email: Optional[EmailStr] = None
 
 class UserCreate(UserBase):
     password: str

@@ -4,18 +4,38 @@ import os
 import sys
 from datetime import datetime
 import logging
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Configure logging
+import os
+log_dir = os.path.join(os.path.dirname(__file__), 'logs')
+os.makedirs(log_dir, exist_ok=True)
+
+# Create formatters
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+# Console handler
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(formatter)
+
+# File handler
+log_file = os.path.join(log_dir, 'register_device.log')
+file_handler = logging.FileHandler(log_file, encoding='utf-8')
+file_handler.setFormatter(formatter)
+
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    handlers=[console_handler, file_handler]
 )
 logger = logging.getLogger(__name__)
 
-# Configuration
-BACKEND_URL = "http://localhost:8000"  # Change this to your backend URL
-API_PREFIX = "/api/v1"
-CONFIG_FILE = "device_config.json"
+# Configuration - Read from environment variables
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
+API_PREFIX = os.getenv("API_PREFIX", "/api/v1")
+CONFIG_FILE = os.getenv("CONFIG_FILE", "device_config.json")
 
 def load_config():
     """Load device configuration if it exists"""
@@ -65,8 +85,8 @@ def register_device(employee_id, device_name):
             "device_id": result['device_id'],
             "api_key": result['api_key'],
             "employee_id": employee_id,
-            "registered_at": datetime.now().isoformat(),
-            "backend_url": BACKEND_URL
+            "registered_at": datetime.now().isoformat()
+            # Note: backend_url is not saved - it should be read from environment variables
         }
         save_config(config)
 
