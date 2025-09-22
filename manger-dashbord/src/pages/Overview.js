@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import StressService from '../services/stress.service';
 
@@ -29,14 +29,15 @@ const Overview = () => {
   const [filter, setFilter] = useState('');
   const [refreshInterval, setRefreshInterval] = useState(30); // in seconds
   
-  const fetchEmployeeData = async () => {
+  const fetchEmployeeData = useCallback(async () => {
     setLoading(true);
     
     try {
       const result = await StressService.getLatestStressData();
       
       if (result.success) {
-        setEmployeeData(result.data);
+        // Force a new array reference to ensure React detects the change
+        setEmployeeData([...result.data]);
         setError(null);
       } else {
         setError('Failed to fetch employee data');
@@ -47,7 +48,7 @@ const Overview = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
   
   useEffect(() => {
     fetchEmployeeData();
@@ -56,7 +57,7 @@ const Overview = () => {
     const intervalId = setInterval(fetchEmployeeData, refreshInterval * 1000);
     
     return () => clearInterval(intervalId);
-  }, [refreshInterval]);
+  }, [refreshInterval, fetchEmployeeData]);
   
   // Filter employees based on search term
   const filteredEmployees = employeeData.filter(employee => {
@@ -187,7 +188,7 @@ const Overview = () => {
                       </tr>
                     ) : (
                       filteredEmployees.map((employee) => (
-                        <tr key={employee.employee_id} className={employee.stress_level === 'High' ? 'bg-red-50' : ''}>
+                        <tr key={`${employee.employee_id}-${employee.timestamp || Date.now()}`} className={employee.stress_level === 'High' ? 'bg-red-50' : ''}>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
                               <div className="flex-shrink-0 h-10 w-10">
@@ -216,7 +217,7 @@ const Overview = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">
-                              {Math.round(employee.confidence)}%
+                              {Math.round(employee.confidence || 0)}%
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

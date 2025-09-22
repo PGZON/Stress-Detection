@@ -4,9 +4,33 @@ const StressService = {
   getLatestStressData: async () => {
     try {
       console.log('Fetching latest stress data');
-      const response = await apiClient.get('/manager/stress/latest');
+      const response = await apiClient.get(`/manager/stress/latest?t=${Date.now()}`);
       console.log('Latest stress data response:', response.data);
-      return { success: true, data: response.data };
+      
+      // Process the data to ensure we have the latest record per employee
+      const processedData = response.data.map(employee => {
+        // Create a completely new object to ensure React detects changes
+        return {
+          ...employee,
+          // Add a timestamp to force re-rendering
+          _refreshKey: Date.now() + Math.random(),
+          // Ensure all fields are properly copied
+          employee_id: employee.employee_id,
+          display_name: employee.display_name || employee.name,
+          name: employee.display_name || employee.name,
+          department: employee.department,
+          latest_stress_level: employee.latest_stress_level || employee.stress_level,
+          latest_emotion: employee.latest_emotion || employee.emotion,
+          stress_level: employee.latest_stress_level || employee.stress_level,
+          emotion: employee.latest_emotion || employee.emotion,
+          confidence: employee.confidence,
+          timestamp: employee.timestamp,
+          device_id: employee.device_id
+        };
+      });
+      
+      console.log('Processed data with new references:', processedData);
+      return { success: true, data: processedData };
     } catch (error) {
       console.error('Error fetching latest stress data:', error);
       return { 
@@ -90,8 +114,17 @@ const StressService = {
       console.log('Fetching aggregate stress data');
       console.log('API URL:', apiClient.defaults.baseURL + '/manager/stress/aggregate');
       
-      // Only use the real endpoint, no more test endpoints or dummy data
-      const response = await apiClient.get('/manager/stress/aggregate');
+      // Get data for the last 30 days to show recent trends
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const fromDate = thirtyDaysAgo.toISOString().split('T')[0]; // YYYY-MM-DD format
+      
+      const response = await apiClient.get('/manager/stress/aggregate', {
+        params: { 
+          from_date: fromDate,
+          t: Date.now()
+        }
+      });
       console.log('Aggregate stress data response:', response.data);
       return { success: true, data: response.data };
     } catch (error) {

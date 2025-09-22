@@ -261,6 +261,10 @@ def get_latest_stress_for_all_employees():
     
     return list(stress_records_collection.aggregate(pipeline))
 
+def get_all_stress_records(limit=100):
+    """Get all stress records from the database (for demo/admin purposes)"""
+    return list(stress_records_collection.find({}).sort("timestamp", -1).limit(limit))
+
 # Command operations
 def create_command(command_data: CommandCreate) -> Command:
     """Create a new command for a device"""

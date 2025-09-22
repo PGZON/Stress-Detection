@@ -16,6 +16,7 @@ import logging
 from pymongo import MongoClient
 from dotenv import load_dotenv
 from app.models.stress_analysis import analyze_image
+from app.models.models import get_all_stress_records
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -66,7 +67,7 @@ except Exception as e:
     logger.info("Connected to MongoDB successfully!")
 
 # File paths (kept for history, but journal will use MongoDB)
-HISTORY_FILE = "stress_history.json"
+# HISTORY_FILE = "stress_history.json"  # No longer needed - using database
 # JOURNAL_FILE = "journal_entries.json" # No longer needed for MongoDB
 
 # Pydantic models
@@ -80,43 +81,7 @@ class JournalEntry(BaseModel):
     stressLevel: str
     timestamp: str
 
-def load_history():
-    """Load stress prediction history from file"""
-    try:
-        if os.path.exists(HISTORY_FILE):
-            with open(HISTORY_FILE, 'r') as f:
-                return json.load(f)
-        return []
-    except Exception as e:
-        logger.error(f"Error loading history: {str(e)}")
-        return []
-
-def save_history(history):
-    """Save stress prediction history to file"""
-    try:
-        # Convert numpy values to Python native types
-        serializable_history = []
-        for entry in history:
-            serializable_entry = {
-                "timestamp": entry["timestamp"],
-                "emotion": entry["emotion"],
-                "stress_level": entry["stress_level"],
-                "confidence": float(entry["confidence"]),
-                "face_quality": {
-                    "is_bright": bool(entry["face_quality"]["is_bright"]),
-                    "is_proper_size": bool(entry["face_quality"]["is_proper_size"]),
-                    "is_centered": bool(entry["face_quality"]["is_centered"]),
-                    "brightness": float(entry["face_quality"]["brightness"]),
-                    "face_ratio": float(entry["face_quality"]["face_ratio"]),
-                    "center_distance": float(entry["face_quality"]["center_distance"])
-                }
-            }
-            serializable_history.append(serializable_entry)
-
-        with open(HISTORY_FILE, 'w') as f:
-            json.dump(serializable_history, f, indent=2)
-    except Exception as e:
-        logger.error(f"Error saving history: {str(e)}")
+# Removed load_history() and save_history() functions - now using database only
 
 # MongoDB specific functions for journal entries
 def load_journal_entries_from_db():
@@ -182,22 +147,7 @@ async def predict_stress(data: ImageData) -> Dict:
         if "error" in result:
             raise HTTPException(status_code=400, detail=result["error"])
         
-        # Record prediction to history
-        try:
-            history_entry = {
-                "timestamp": data.timestamp,
-                "emotion": result["emotion"],
-                "stress_level": result["stress_level"],
-                "confidence": result["confidence"],
-                "face_quality": result["face_quality"]
-            }
-            history = load_history()
-            history.append(history_entry)
-            save_history(history)
-        except Exception as e:
-            logger.error(f"Error saving to history: {str(e)}", exc_info=True)
-            # Don't fail the request if history saving fails
-        
+        # Note: Not saving to history file anymore - use proper API endpoints for database storage
         logger.info(f"Successfully processed image. Stress level: {result['stress_level']}")
         return result
         
@@ -220,9 +170,18 @@ async def get_suggestions(level: str) -> Dict:
 
 @app.get("/stress-history")
 async def get_stress_history():
-    """Retrieve stress prediction history."""
-    history = load_history()
-    return JSONResponse(content=history)
+    """Retrieve stress prediction history from database."""
+    try:
+        records = get_all_stress_records(limit=100)
+        # Clean MongoDB _id from results
+        for record in records:
+            if "_id" in record:
+                record.pop("_id")
+        return JSONResponse(content=records)
+    except Exception as e:
+        logger.error(f"Error retrieving stress history: {str(e)}")
+        # Return empty list if database fails - no JSON fallback
+        return JSONResponse(content=[])
 
 @app.get("/journal-entries")
 async def get_journal_entries() -> List[Dict]:

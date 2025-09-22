@@ -187,6 +187,7 @@ async def get_stress_aggregates(
     
     # Build time series data
     timeseries = []
+    daily_trend = []
     
     if group_by == "day":
         # Group by day
@@ -211,6 +212,16 @@ async def get_stress_aggregates(
         ]
         
         daily_data = list(stress_records_collection.aggregate(pipeline))
+        
+        # Build daily trend data for frontend
+        daily_trend = []
+        for day in daily_data:
+            daily_trend.append({
+                "date": day["_id"],
+                "Low": day.get("low_count", 0),
+                "Medium": day.get("medium_count", 0),
+                "High": day.get("high_count", 0)
+            })
         
         for day in daily_data:
             # Calculate stress score (0-100)
@@ -347,8 +358,17 @@ async def get_stress_aggregates(
             "medium_stress_percentage": medium_pct,
             "low_stress_percentage": low_pct
         },
+        "distribution": {
+            "Low": low_count,
+            "Medium": medium_count,
+            "High": high_count
+        },
         "timeseries": timeseries
     }
+    
+    if daily_trend:
+        response["dailyTrend"] = daily_trend
+        response["timeline"] = daily_trend  # For backward compatibility
     
     if department_stats:
         response["departments"] = department_stats

@@ -230,7 +230,7 @@ const EmployeeDetail = () => {
                   </div>
                   <div>
                     <span className="text-sm font-medium text-gray-500">Confidence:</span>
-                    <span className="ml-2 text-sm text-gray-900">{Math.round(latestStress.confidence)}%</span>
+                    <span className="ml-2 text-sm text-gray-900">{Math.round(latestStress.confidence || 0)}%</span>
                   </div>
                 </div>
                 

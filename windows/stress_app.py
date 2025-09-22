@@ -102,6 +102,15 @@ class StressDetectionApp:
         # Try to load existing session
         self.load_session()
 
+        # Initialize attributes that might not be set by load_session
+        if not hasattr(self, 'access_token'):
+            self.access_token = None
+        if not hasattr(self, 'current_user'):
+            self.current_user = None
+
+        # Check if we have a valid session
+        self.has_valid_session = self.current_user is not None and self.access_token is not None
+
         # Auto analysis timer
         self.auto_timer = None
 
@@ -115,8 +124,13 @@ class StressDetectionApp:
         self.main_frame.columnconfigure(0, weight=1)
         self.main_frame.rowconfigure(1, weight=1)
 
-        # Initialize UI
-        self.show_terms_conditions()
+        # Initialize UI based on session status
+        if self.has_valid_session:
+            logger.info("Valid session found, going directly to main menu")
+            self.show_main_menu()
+        else:
+            logger.info("No valid session, showing terms and conditions")
+            self.show_terms_conditions()
 
     def setup_styles(self):
         """Setup monochrome black & white styling"""
@@ -1570,11 +1584,14 @@ Last updated: September 2025
                     self.current_user = session_data.get('user')
                     self.access_token = session_data.get('access_token')
                     logger.info(f"Loaded existing session for user: {self.current_user.get('username', 'Unknown')}")
-                    # Auto-navigate to main menu
-                    self.root.after(100, self.show_main_menu)
+                    return True  # Indicate valid session was loaded
                 else:
                     logger.info("Session expired, user needs to login again")
                     os.remove(self.session_file)  # Remove expired session
+                    return False  # No valid session
+        except Exception as e:
+            logger.error(f"Error loading session: {e}")
+            return False  # No valid session on error
         except Exception as e:
             logger.error(f"Error loading session: {e}")
 
@@ -1648,6 +1665,12 @@ Last updated: September 2025
             self.start_remote_check_timer()  # Still restart timer
             return
 
+        # Check if we have a valid access token
+        if not self.access_token:
+            logger.warning("[REMOTE CHECK] No access token available, skipping remote check")
+            self.start_remote_check_timer()
+            return
+
         try:
             url = f"{self.backend_url}{self.api_prefix}/stress/remote-check/{config.get('employee_id')}"
             headers = {
@@ -1660,7 +1683,7 @@ Last updated: September 2025
 
             if response.status_code == 200:
                 request_data = response.json()
-                if request_data.get('pending_request'):
+                if request_data and request_data.get('pending_request'):
                     logger.info("[REMOTE CHECK] Found pending remote stress check request - processing immediately")
                     # Run stress detection for remote request
                     self.run_remote_stress_check(request_data)
@@ -1691,6 +1714,10 @@ Last updated: September 2025
 
     def run_remote_stress_check(self, request_data):
         """Run stress detection for remote request"""
+        if not request_data:
+            logger.error("[REMOTE STRESS] Invalid request data received")
+            return
+            
         logger.info("[REMOTE STRESS] Running remote stress check")
 
         def run_check():
@@ -1701,6 +1728,13 @@ Last updated: September 2025
                     return
                 import cv2
                 from datetime import datetime
+
+                # Load emotion stress map
+                get_emotion_stress_map()
+
+                if EMOTION_STRESS_MAP is None:
+                    logger.error("[REMOTE STRESS] Failed to load emotion stress map")
+                    return
 
                 # Capture image with better error handling
                 cap = cv2.VideoCapture(0)
@@ -1734,27 +1768,31 @@ Last updated: September 2025
                 # Analyze stress (no need to convert to base64 for local analysis)
                 result = analyze_image_array(frame)
 
+                if not result:
+                    logger.error("[REMOTE STRESS] Analysis failed - no result returned")
+                    return
+
                 logger.info(f"[REMOTE STRESS] Analysis result: {result}")
-                if result:
-                    if "error" in result:
-                        logger.warning(f"[REMOTE STRESS] Analysis returned error: {result['error']}")
-                    confidence = result.get('confidence', 0)
-                    emotion = result.get('emotion', 'unknown')
-                    logger.info(f"[REMOTE STRESS] Confidence: {confidence} (type: {type(confidence)}), Emotion: {emotion}")
-                    emotion_config = EMOTION_STRESS_MAP.get(emotion, {"min_confidence": 25})
-                    logger.info(f"[REMOTE STRESS] Required confidence for {emotion}: {emotion_config['min_confidence']}%")
+                if "error" in result:
+                    logger.warning(f"[REMOTE STRESS] Analysis returned error: {result['error']}")
+                    return
+                confidence = result.get('confidence', 0)
+                emotion = result.get('emotion', 'unknown')
+                logger.info(f"[REMOTE STRESS] Confidence: {confidence} (type: {type(confidence)}), Emotion: {emotion}")
+                emotion_config = EMOTION_STRESS_MAP.get(emotion, {"min_confidence": 25}) if EMOTION_STRESS_MAP else {"min_confidence": 25}
+                logger.info(f"[REMOTE STRESS] Required confidence for {emotion}: {emotion_config['min_confidence']}%")
 
                 # Use emotion-specific confidence threshold
-                emotion = result.get('emotion', '') if result else ''
-                emotion_config = EMOTION_STRESS_MAP.get(emotion, {"min_confidence": 25})
+                emotion = result.get('emotion', '')
+                emotion_config = EMOTION_STRESS_MAP.get(emotion, {"min_confidence": 25}) if EMOTION_STRESS_MAP else {"min_confidence": 25}
                 min_confidence = emotion_config["min_confidence"] / 100.0
                 
-                confidence_val = float(result.get('confidence', 0)) if result else 0.0
+                confidence_val = float(result.get('confidence', 0))
                 should_submit = confidence_val > min_confidence
                 
                 logger.info(f"[REMOTE STRESS] Emotion: {emotion}, Confidence: {confidence_val:.3f}, Min required: {min_confidence:.3f} ({emotion_config['min_confidence']}%), Should submit: {should_submit}")
                 
-                if result and "error" not in result and confidence_val > min_confidence:
+                if should_submit:
                     # Submit to backend with remote request info
                     logger.info("[REMOTE STRESS] Starting backend submission for high confidence result")
                     config = self.load_config()
@@ -1762,7 +1800,7 @@ Last updated: September 2025
                         url = f"{self.backend_url}{self.api_prefix}/stress/remote-submit"
                         
                         # Map emotion to API enum format
-                        emotion = result.get('emotion')
+                        emotion = result.get('emotion', 'neutral')
                         emotion_map = {
                             'angry': 'angry',
                             'disgusted': 'disgust',
@@ -1777,10 +1815,10 @@ Last updated: September 2025
                         logger.info(f"[REMOTE STRESS] Original emotion: {emotion}, Mapped emotion: {api_emotion}")
                         
                         data = {
-                            "stress_level": result.get('stress_level'),
+                            "stress_level": result.get('stress_level', 'Low'),
                             "emotion": api_emotion,
                             "confidence": result.get('confidence', 0) * 100,  # Convert to 0-100 scale
-                            "request_id": request_data.get('request_id'),
+                            "request_id": request_data.get('request_id') if request_data else None,
                             "remote_request": True
                         }
 
@@ -1792,15 +1830,14 @@ Last updated: September 2025
                         logger.info(f"[REMOTE STRESS] Using API key: {config.get('api_key')[:8]}...")
                         logger.info(f"[REMOTE STRESS] Submitting to: {url}")
 
-                        response = requests.post(url, json=data, headers=headers)
-                        status_code = response.status_code
-                        if status_code in [200, 201] or str(status_code) in ["200", "201"]:
-                            logger.info(f"[REMOTE STRESS] Remote stress data submitted: {result}")
-                            # Update status if possible
-                            if hasattr(self, 'service_status_var'):
-                                self.service_status_var.set("Remote stress check completed")
-                        else:
-                            logger.warning(f"[REMOTE STRESS] Failed to submit remote data: {status_code} (type: {type(status_code)})")
+                        try:
+                            response = requests.post(url, json=data, headers=headers, timeout=30)
+                            if response.status_code in [200, 201]:
+                                logger.info(f"[REMOTE STRESS] Remote stress data submitted successfully: {result}")
+                            else:
+                                logger.error(f"[REMOTE STRESS] Failed to submit data. Status: {response.status_code}, Response: {response.text}")
+                        except Exception as submit_error:
+                            logger.error(f"[REMOTE STRESS] Error submitting to backend: {str(submit_error)}")
 
             except Exception as e:
                 logger.error(f"[REMOTE STRESS] Error: {str(e)}")
@@ -1839,6 +1876,10 @@ Last updated: September 2025
 
                 # Load emotion stress map
                 get_emotion_stress_map()
+
+                if EMOTION_STRESS_MAP is None:
+                    logger.error("[AUTO ANALYSIS] Failed to load emotion stress map")
+                    return
 
                 # Capture image with better error handling
                 cap = cv2.VideoCapture(0)
@@ -1887,12 +1928,12 @@ Last updated: September 2025
                     confidence = result.get('confidence', 0)
                     emotion = result.get('emotion', 'unknown')
                     logger.info(f"[AUTO ANALYSIS] Confidence: {confidence} (type: {type(confidence)}), Emotion: {emotion}")
-                    emotion_config = EMOTION_STRESS_MAP.get(emotion, {"min_confidence": 25})
+                    emotion_config = EMOTION_STRESS_MAP.get(emotion, {"min_confidence": 25}) if EMOTION_STRESS_MAP else {"min_confidence": 25}
                     logger.info(f"[AUTO ANALYSIS] Required confidence for {emotion}: {emotion_config['min_confidence']}%")
 
                 # Use emotion-specific confidence threshold instead of fixed 0.5
                 emotion = result.get('emotion', '') if result else ''
-                emotion_config = EMOTION_STRESS_MAP.get(emotion, {"min_confidence": 25})
+                emotion_config = EMOTION_STRESS_MAP.get(emotion, {"min_confidence": 25}) if EMOTION_STRESS_MAP else {"min_confidence": 25}
                 min_confidence = emotion_config["min_confidence"] / 100.0  # Convert to decimal
                 
                 confidence_val = float(result.get('confidence', 0)) if result else 0.0
@@ -1907,40 +1948,45 @@ Last updated: September 2025
                     if config:
                         url = f"{self.backend_url}{self.api_prefix}/stress/record"
                         api_key = config.get('api_key')
-                        logger.info(f"[AUTO ANALYSIS] Using API key: {api_key[:8]}...")
-                        
-                        # Map emotion to API enum format
-                        emotion = result.get('emotion')
-                        emotion_map = {
-                            'angry': 'angry',
-                            'disgusted': 'disgust',
-                            'fearful': 'fear',
-                            'happy': 'happy',
-                            'neutral': 'neutral',
-                            'sad': 'sad',
-                            'surprised': 'surprise'
-                        }
-                        api_emotion = emotion_map.get(emotion, 'neutral')
-                        logger.info(f"[AUTO ANALYSIS] Original emotion: {emotion}, Mapped emotion: {api_emotion}")
-                        
-                        headers = {
-                            "X-Device-Key": api_key,
-                            "Content-Type": "application/json"
-                        }
-                        data = {
-                            "emotion": api_emotion,
-                            "stress_level": result.get('stress_level', 'unknown'),
-                            "confidence": (result.get('confidence', 0) or 0) * 100,  # Convert to 0-100 scale
-                            "timestamp": datetime.now().isoformat(),
-                            "face_quality": result.get('face_quality', {})
-                        }
+                        if api_key:
+                            logger.info(f"[AUTO ANALYSIS] Using API key: {api_key[:8]}...")
+                            
+                            # Map emotion to API enum format
+                            emotion = result.get('emotion')
+                            emotion_map = {
+                                'angry': 'angry',
+                                'disgusted': 'disgust',
+                                'fearful': 'fear',
+                                'happy': 'happy',
+                                'neutral': 'neutral',
+                                'sad': 'sad',
+                                'surprised': 'surprise'
+                            }
+                            api_emotion = emotion_map.get(emotion, 'neutral')
+                            logger.info(f"[AUTO ANALYSIS] Original emotion: {emotion}, Mapped emotion: {api_emotion}")
+                            
+                            headers = {
+                                "X-Device-Key": api_key,
+                                "Content-Type": "application/json"
+                            }
+                            data = {
+                                "emotion": api_emotion,
+                                "stress_level": result.get('stress_level', 'unknown'),
+                                "confidence": (result.get('confidence', 0) or 0) * 100,  # Convert to 0-100 scale
+                                "timestamp": datetime.now().isoformat(),
+                                "face_quality": result.get('face_quality', {})
+                            }
 
-                        response = requests.post(url, json=data, headers=headers)
-                        status_code = response.status_code
-                        if status_code in [200, 201] or str(status_code) in ["200", "201"]:
-                            logger.info(f"[AUTO ANALYSIS] Stress data submitted: {result}")
+                            response = requests.post(url, json=data, headers=headers)
+                            status_code = response.status_code
+                            if status_code in [200, 201] or str(status_code) in ["200", "201"]:
+                                logger.info(f"[AUTO ANALYSIS] Stress data submitted: {result}")
+                            else:
+                                logger.warning(f"[AUTO ANALYSIS] Failed to submit: {status_code} (type: {type(status_code)})")
                         else:
-                            logger.warning(f"[AUTO ANALYSIS] Failed to submit: {status_code} (type: {type(status_code)})")
+                            logger.warning("[AUTO ANALYSIS] No API key found in config, skipping submission")
+                    else:
+                        logger.warning("[AUTO ANALYSIS] No config found, skipping backend submission")
 
             except Exception as e:
                 logger.error(f"[AUTO ANALYSIS] Error: {str(e)}")

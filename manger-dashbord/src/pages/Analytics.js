@@ -33,13 +33,14 @@ const Analytics = () => {
         console.log('Analytics - Setting data:', result.data);
         
         if (!result.data || 
-            ((!result.data.distribution || Object.keys(result.data.distribution).length === 0) && 
-             (!result.data.timeline || result.data.timeline.length === 0))) {
+            ((!result.data.distribution && !result.data.overall) || 
+             ((!result.data.timeline && !result.data.timeseries && !result.data.dailyTrend) || 
+              (result.data.timeline?.length === 0 && result.data.timeseries?.length === 0 && result.data.dailyTrend?.length === 0)))) {
           console.error('Analytics - No data available in response');
           setError('No analytics data available. There might not be enough stress records in the system yet.');
           setAggregateData(null);
         } else {
-          setAggregateData(result.data);
+          setAggregateData({ ...result.data, _refreshKey: Date.now() });
           setError(null);
         }
       } else {
@@ -61,14 +62,14 @@ const Analytics = () => {
   }, []);
   
   // Prepare data for pie chart
-  const pieData = aggregateData?.distribution ? [
-    { name: 'Low', value: aggregateData.distribution.Low || 0 },
-    { name: 'Medium', value: aggregateData.distribution.Medium || 0 },
-    { name: 'High', value: aggregateData.distribution.High || 0 }
+  const pieData = (aggregateData?.distribution || aggregateData?.overall) ? [
+    { name: 'Low', value: (aggregateData.distribution?.Low || aggregateData.overall?.low_stress_count) || 0 },
+    { name: 'Medium', value: (aggregateData.distribution?.Medium || aggregateData.overall?.medium_stress_count) || 0 },
+    { name: 'High', value: (aggregateData.distribution?.High || aggregateData.overall?.high_stress_count) || 0 }
   ] : [];
   
   // Prepare data for bar chart
-  const barData = aggregateData?.dailyTrend || [];
+  const barData = aggregateData?.dailyTrend || aggregateData?.timeline || [];
   
   // Custom pie chart label
   const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name }) => {
