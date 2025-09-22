@@ -4,6 +4,7 @@ import logging
 import base64
 from typing import Dict, Tuple, Any, Optional
 import os
+import sys
 from tensorflow.keras.models import load_model
 from tensorflow.keras.utils import load_img, img_to_array
 from tensorflow.keras.layers import InputLayer
@@ -61,7 +62,12 @@ tf.keras.utils.get_custom_objects()['InputLayer'] = CustomInputLayer
 tf.keras.utils.get_custom_objects()['DTypePolicy'] = CustomDTypePolicy
 
 # Custom CNN model configuration
-MODEL_PATH = os.path.join(os.path.dirname(__file__), 'stress_cnn_model.h5')
+if getattr(sys, 'frozen', False):
+    # Running in PyInstaller bundle
+    MODEL_PATH = os.path.join(sys._MEIPASS, '_internal', 'stress_cnn_model.h5')
+else:
+    # Running in development
+    MODEL_PATH = os.path.join(os.path.dirname(__file__), 'stress_cnn_model.h5')
 CLASS_NAMES = ['angry', 'disgusted', 'fearful', 'happy', 'neutral', 'sad', 'surprised']
 EMOTION_TO_STRESS = {
     "happy": ("Low", 0.2),
