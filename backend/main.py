@@ -20,6 +20,28 @@ logger = logging.getLogger(__name__)
 # Create rate limiter
 limiter = Limiter(key_func=get_remote_address)
 
+from fastapi import FastAPI, Request, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from app.api.api import api_router
+from app.core.config import settings
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+import logging
+import os
+
+# Configure logging
+log_level = getattr(logging, settings.LOG_LEVEL, logging.INFO)
+logging.basicConfig(
+    level=log_level,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+# Create rate limiter
+limiter = Limiter(key_func=get_remote_address)
+
 # Create FastAPI app
 app = FastAPI(
     title="StressSense API",
@@ -41,6 +63,27 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Initialize database connections and log status
+try:
+    from app.db import mongodb
+    print("✅ MongoDB connection initialized successfully")
+    logger.info("MongoDB connection initialized successfully")
+except Exception as e:
+    print(f"❌ MongoDB connection failed: {e}")
+    logger.error(f"MongoDB connection failed: {e}")
+
+try:
+    from app.db.redis_cache import cache
+    if cache.enabled:
+        print("✅ Redis cache connection initialized successfully")
+        logger.info("Redis cache connection initialized successfully")
+    else:
+        print("⚠️  Redis cache disabled (connection failed)")
+        logger.warning("Redis cache disabled (connection failed)")
+except Exception as e:
+    print(f"❌ Redis cache initialization failed: {e}")
+    logger.error(f"Redis cache initialization failed: {e}")
 
 # Add API router
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)

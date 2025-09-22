@@ -55,6 +55,13 @@ class Settings:
         ]
     }
     
+    # Redis Settings
+    REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
+    REDIS_PORT: int = int(os.getenv("REDIS_PORT", "6379"))
+    REDIS_DB: int = int(os.getenv("REDIS_DB", "0"))
+    REDIS_PASSWORD: Optional[str] = os.getenv("REDIS_PASSWORD")
+    REDIS_CACHE_TTL: int = int(os.getenv("REDIS_CACHE_TTL", "30"))  # seconds
+    
     # Privacy Banner
     PRIVACY_BANNER: str = (
         "StressSense only stores processed stress data, not raw images or video. "

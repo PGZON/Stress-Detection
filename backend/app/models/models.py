@@ -10,6 +10,7 @@ from app.db.mongodb import (
     users_collection, employees_collection, devices_collection,
     stress_records_collection, commands_collection
 )
+from app.db.redis_cache import cache
 from app.core.config import settings, EMOTION_STRESS_MAP
 import logging
 
@@ -225,6 +226,12 @@ def create_stress_record(submission: StressSubmission) -> StressRecord:
     logger.info(f"[DATABASE] Creating stress record: {record_db}")
     stress_records_collection.insert_one(record_db)
     logger.info(f"[DATABASE] Stress record created successfully with ID: {record_id}")
+
+    # Clear cache for latest stress data since we have new data
+    cache.delete("latest_stress_all_employees")
+    cache.clear_pattern("employee_stress_history_*")
+    logger.info("[CACHE] Cleared latest stress data cache after new record creation")
+
     return StressRecord(**record_db)
 
 def get_stress_records_by_employee(employee_id: str, from_date=None, to_date=None, limit=50):

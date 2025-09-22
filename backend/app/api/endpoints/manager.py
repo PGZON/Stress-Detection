@@ -10,6 +10,7 @@ from app.models.models import (
     get_employee, get_all_employees, create_command, get_device
 )
 from app.db.mongodb import stress_records_collection, employees_collection
+from app.db.redis_cache import cache
 from app.core.security.deps import get_current_manager
 import logging
 from pymongo import DESCENDING
@@ -85,9 +86,17 @@ async def get_latest_stress_all_employees(
     """
     Get the latest stress record for each active employee (manager only)
     """
-    # Get latest stress records
+    cache_key = "latest_stress_all_employees"
+
+    # Try to get from cache first
+    cached_result = cache.get(cache_key)
+    if cached_result:
+        logger.info("Returning cached latest stress data")
+        return cached_result
+
+    # Get latest stress records from database
     latest_records = get_latest_stress_for_all_employees()
-    
+
     # Format the response
     result = []
     for record in latest_records:
@@ -95,17 +104,22 @@ async def get_latest_stress_all_employees(
         employee = get_employee(record["employee_id"])
         if not employee or not employee.get("active", True):
             continue
-        
+
         result.append({
             "employee_id": record["employee_id"],
             "display_name": employee["display_name"],
+            "department": employee.get("department", "N/A"),
             "latest_stress_level": record["stress_level"],
             "latest_emotion": record["emotion"],
             "confidence": record["confidence"],
             "timestamp": record["timestamp"],
             "device_id": record["device_id"]
         })
-    
+
+    # Cache the result for 30 seconds
+    cache.set(cache_key, result, 30)
+    logger.info("Cached latest stress data for 30 seconds")
+
     return result
 
 @router.get("/stress/history/{employee_id}", response_model=List[StressRecord])

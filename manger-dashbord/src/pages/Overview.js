@@ -38,6 +38,8 @@ const Overview = () => {
       if (result.success) {
         // Force a new array reference to ensure React detects the change
         setEmployeeData([...result.data]);
+        console.log('Employee data received:', result.data);
+        console.log('First employee department:', result.data[0]?.department);
         setError(null);
       } else {
         setError('Failed to fetch employee data');
@@ -187,7 +189,9 @@ const Overview = () => {
                         </td>
                       </tr>
                     ) : (
-                      filteredEmployees.map((employee) => (
+                      filteredEmployees.map((employee) => {
+                        console.log('Rendering employee:', employee.employee_id, 'Department:', employee.department);
+                        return (
                         <tr key={`${employee.employee_id}-${employee.timestamp || Date.now()}`} className={employee.stress_level === 'High' ? 'bg-red-50' : ''}>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
@@ -232,7 +236,8 @@ const Overview = () => {
                             </Link>
                           </td>
                         </tr>
-                      ))
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
