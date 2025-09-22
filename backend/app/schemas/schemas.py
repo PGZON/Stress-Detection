@@ -53,6 +53,7 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str
     employee_id: Optional[str] = None
+    department: Optional[str] = None
 
 class UserUpdate(BaseModel):
     username: Optional[str] = None

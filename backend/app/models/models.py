@@ -21,6 +21,27 @@ def create_user(user_data: UserCreate) -> User:
     user_id = str(uuid.uuid4())
     created_at = datetime.utcnow().isoformat() + "Z"
     
+    # If registering as employee, ensure employee record exists
+    if user_data.role == "employee":
+        if not user_data.employee_id:
+            # Generate employee_id if not provided
+            user_data.employee_id = str(uuid.uuid4())
+        
+        # Check if employee already exists
+        existing_employee = employees_collection.find_one({"employee_id": user_data.employee_id})
+        if not existing_employee:
+            # Create employee record
+            employee_db = {
+                "employee_id": user_data.employee_id,
+                "display_name": getattr(user_data, 'full_name', user_data.username),
+                "email": getattr(user_data, 'email', None),
+                "department": getattr(user_data, 'department', 'General'),  # Use provided department or default to General
+                "active": True,
+                "created_at": created_at
+            }
+            employees_collection.insert_one(employee_db)
+            logger.info(f"Created employee record for user {user_data.username} with employee_id {user_data.employee_id}")
+    
     user_db = {
         "user_id": user_id,
         "username": user_data.username,

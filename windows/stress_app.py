@@ -728,7 +728,15 @@ Last updated: September 2025
 
         self.reg_employee_id_var = tk.StringVar()
         employee_entry = ttk.Entry(personal_frame, textvariable=self.reg_employee_id_var, style="Modern.TEntry")
-        employee_entry.grid(row=5, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 20))
+        employee_entry.grid(row=5, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 15))
+
+        # Department field
+        department_label = ttk.Label(personal_frame, text="🏢 Department", style="Form.TLabel")
+        department_label.grid(row=6, column=0, sticky=tk.W, pady=(0, 8))
+
+        self.reg_department_var = tk.StringVar()
+        department_entry = ttk.Entry(personal_frame, textvariable=self.reg_department_var, style="Modern.TEntry")
+        department_entry.grid(row=7, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 20))
 
         # Buttons section
         button_frame = ttk.Frame(form_container, style="Card.TFrame")
@@ -769,6 +777,7 @@ Last updated: September 2025
         fullname = self.reg_fullname_var.get().strip()
         email = self.reg_email_var.get().strip()
         employee_id = self.reg_employee_id_var.get().strip()
+        department = self.reg_department_var.get().strip()
 
         # Validation
         if not all([username, password, confirm_password, fullname, email, employee_id]):
@@ -792,6 +801,7 @@ Last updated: September 2025
                 "full_name": fullname,
                 "email": email,
                 "employee_id": employee_id,
+                "department": department or "General",  # Default to General if empty
                 "role": "employee"
             }
 
