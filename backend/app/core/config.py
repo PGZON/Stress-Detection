@@ -59,7 +59,9 @@ class Settings:
     REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
     REDIS_PORT: int = int(os.getenv("REDIS_PORT", "6379"))
     REDIS_DB: int = int(os.getenv("REDIS_DB", "0"))
+    REDIS_USERNAME: Optional[str] = os.getenv("REDIS_USERNAME")
     REDIS_PASSWORD: Optional[str] = os.getenv("REDIS_PASSWORD")
+    REDIS_DECODE_RESPONSES: bool = os.getenv("REDIS_DECODE_RESPONSES", "False").lower() == "true"
     REDIS_CACHE_TTL: int = int(os.getenv("REDIS_CACHE_TTL", "30"))  # seconds
     
     # Privacy Banner

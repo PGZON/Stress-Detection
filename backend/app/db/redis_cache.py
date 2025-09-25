@@ -13,8 +13,9 @@ class RedisCache:
                 host=settings.REDIS_HOST,
                 port=settings.REDIS_PORT,
                 db=settings.REDIS_DB,
+                username=settings.REDIS_USERNAME,
                 password=settings.REDIS_PASSWORD,
-                decode_responses=True,
+                decode_responses=settings.REDIS_DECODE_RESPONSES,
                 socket_connect_timeout=5,
                 socket_timeout=5,
                 retry_on_timeout=True

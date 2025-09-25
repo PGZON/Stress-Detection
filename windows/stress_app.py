@@ -10,8 +10,30 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 import logging
 import time
+from win10toast import ToastNotifier
 
-# Import stress analysis modules for PyInstaller to detect
+# Initialize notification toaster
+toaster = ToastNotifier()
+
+def is_office_hours():
+    """Check if current time is within office hours (9 AM to 6 PM)"""
+    now = datetime.now()
+    current_hour = now.hour
+    return 9 <= current_hour < 18  # 9 AM to 6 PM
+
+def show_stress_notification():
+    """Show Windows notification for high stress"""
+    toaster.show_toast(
+        "Stress Detection Alert",
+        "High stress detected! Take a break and relax.",
+        duration=10,
+        threaded=True
+    )
+
+# Check office hours on startup
+if not is_office_hours():
+    messagebox.showwarning("Office Hours Only", "This application only runs during office hours (9 AM to 6 PM).")
+    sys.exit(0)
 try:
     from stress_analysis import analyze_image, analyze_image_array, EMOTION_STRESS_MAP
 except ImportError:
@@ -1397,6 +1419,11 @@ Last updated: September 2025
                 logger.info(f"[LOCAL ANALYSIS] Result: {local_result}")
                 self.service_status_var.set(local_result)
 
+                # Show notification if high stress detected
+                if stress_level == "High":
+                    show_stress_notification()
+                    logger.info("[SERVICE] High stress notification shown")
+
                 # Send to backend
                 logger.info("[BACKEND] Starting backend submission...")
                 try:
@@ -1849,6 +1876,11 @@ Last updated: September 2025
 
     def run_auto_analysis(self):
         """Run automatic stress analysis"""
+        # Check if within office hours
+        if not is_office_hours():
+            logger.info("[AUTO ANALYSIS] Outside office hours (9 AM - 6 PM), skipping analysis")
+            return
+
         config = self.load_config()
         if not config:
             logger.warning("[AUTO ANALYSIS] Device not registered, skipping analysis")
@@ -1976,6 +2008,12 @@ Last updated: September 2025
                                 "timestamp": datetime.now().isoformat(),
                                 "face_quality": result.get('face_quality', {})
                             }
+
+                            # Show notification if high stress detected
+                            stress_level = result.get('stress_level', 'unknown')
+                            if stress_level == "High":
+                                show_stress_notification()
+                                logger.info("[AUTO ANALYSIS] High stress notification shown")
 
                             response = requests.post(url, json=data, headers=headers)
                             status_code = response.status_code

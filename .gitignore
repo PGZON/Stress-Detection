@@ -26,3 +26,7 @@ build.log
 log.txt
 windows/build_log.txt
 windows/StressDetectionInstaller.exe
+backend/.env
+windows/*.json
+manger-dashbord/.env
+manger-dashbord/node_modules/

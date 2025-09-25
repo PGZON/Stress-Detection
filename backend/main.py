@@ -8,28 +8,9 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 import logging
 import os
-
-# Configure logging
-log_level = getattr(logging, settings.LOG_LEVEL, logging.INFO)
-logging.basicConfig(
-    level=log_level,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
-logger = logging.getLogger(__name__)
-
-# Create rate limiter
-limiter = Limiter(key_func=get_remote_address)
-
-from fastapi import FastAPI, Request, status
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from app.api.api import api_router
-from app.core.config import settings
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
-import logging
-import os
+import threading
+import time
+import requests
 
 # Configure logging
 log_level = getattr(logging, settings.LOG_LEVEL, logging.INFO)
@@ -87,6 +68,61 @@ except Exception as e:
 
 # Add API router
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
+
+# Health check endpoint
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    try:
+        # Check MongoDB
+        from app.db.mongodb import client
+        client.admin.command('ping')
+        mongo_status = "healthy"
+    except Exception as e:
+        mongo_status = f"unhealthy: {str(e)}"
+    
+    try:
+        # Check Redis
+        from app.db.redis_cache import cache
+        if cache.enabled:
+            cache.redis_client.ping()
+            redis_status = "healthy"
+        else:
+            redis_status = "disabled"
+    except Exception as e:
+        redis_status = f"unhealthy: {str(e)}"
+    
+    return {
+        "status": "healthy" if mongo_status == "healthy" and redis_status in ["healthy", "disabled"] else "unhealthy",
+        "timestamp": time.time(),
+        "services": {
+            "mongodb": mongo_status,
+            "redis": redis_status
+        }
+    }
+
+# Function to perform health check every 3 minutes
+def health_check_worker():
+    """Background worker to perform health checks every 3 minutes"""
+    while True:
+        try:
+            # Get the port from env or default
+            port = int(os.environ.get("PORT", 8000))
+            response = requests.get(f"http://localhost:{port}/health", timeout=10)
+            if response.status_code == 200:
+                logger.info("Health check passed")
+            else:
+                logger.warning(f"Health check failed with status: {response.status_code}")
+        except Exception as e:
+            logger.error(f"Health check error: {str(e)}")
+        
+        # Sleep for 3 minutes (180 seconds)
+        time.sleep(180)
+
+# Start health check worker in a separate thread
+health_thread = threading.Thread(target=health_check_worker, daemon=True)
+health_thread.start()
+logger.info("Health check worker started (runs every 3 minutes)")
 
 # Custom error handler for 500 errors
 @app.exception_handler(Exception)
