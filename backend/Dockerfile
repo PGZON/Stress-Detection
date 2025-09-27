@@ -1,4 +1,4 @@
-# Use Python 3.11 (works with Mediapipe & TensorFlow)
+# Use Python 3.11 (compatible with mediapipe and tensorflow)
 FROM python:3.11-slim
 
 # Set working directory
@@ -18,17 +18,18 @@ RUN apt-get update && apt-get install -y \
 # Upgrade pip
 RUN pip install --no-cache-dir --upgrade pip
 
-# Copy requirements
+# Copy requirements from backend/
 COPY requirements.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy app code
+# Copy the whole backend code
 COPY . .
 
-# Expose port (Render will inject PORT automatically)
+# Expose port (Render injects PORT automatically)
 EXPOSE 8000
 
-# Run FastAPI with Uvicorn
+# Start FastAPI with Uvicorn
+# If your entry file is main.py inside backend/, this works:
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
