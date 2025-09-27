@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import StressService from '../services/stress.service';
 import ErrorDisplay from '../components/ErrorDisplay';
-import LoadingSpinner from '../components/LoadingSpinner';
 
 // Colors for stress levels
 const STRESS_COLORS = {

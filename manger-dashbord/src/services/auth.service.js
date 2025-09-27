@@ -1,4 +1,3 @@
-import apiClient from './api';
 import { jwtDecode } from 'jwt-decode';
 import axios from 'axios';
 
