@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 const Settings = () => {
   const { user } = useAuth();
-  const [apiUrl, setApiUrl] = useState(localStorage.getItem('apiUrl') || 'http://localhost:8000/api/v1');
+  const [apiUrl, setApiUrl] = useState(localStorage.getItem('apiUrl') || process.env.REACT_APP_API_BASE_URL || 'API URL not configured');
   const [refreshInterval, setRefreshInterval] = useState(localStorage.getItem('refreshInterval') || '30');
   const [darkMode, setDarkMode] = useState(localStorage.getItem('darkMode') === 'true');
   const [notification, setNotification] = useState(null);

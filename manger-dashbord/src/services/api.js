@@ -1,6 +1,10 @@
 import axios from 'axios';
 
-const API_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1'; // Use env var or fallback
+const API_URL = process.env.REACT_APP_API_BASE_URL;
+
+if (!API_URL) {
+  throw new Error('REACT_APP_API_BASE_URL environment variable is required');
+}
 
 // Creating an axios instance with base URL
 const apiClient = axios.create({

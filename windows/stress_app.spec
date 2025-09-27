@@ -5,10 +5,11 @@ from PyInstaller.utils.hooks import collect_all
 datas = [
     ('C:\\Stress-Detection\\.venv\\Lib\\site-packages\\cv2\\data\\haarcascade_frontalface_default.xml', 'cv2/data/'),
     ('C:\\Stress-Detection\\stress_cnn_model.h5', 'stress_cnn_model.h5'),  # Add model file; adjust path if different
+    ('C:\\Stress-Detection\\windows\\.env', '.env'),  # Add environment file
 ]
 
 binaries = []
-hiddenimports = []
+hiddenimports = ['win10toast']  # Add win10toast for notifications
 tmp_ret = collect_all('tensorflow')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 

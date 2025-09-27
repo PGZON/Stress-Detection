@@ -7,7 +7,19 @@ import logging
 from dotenv import load_dotenv
 
 # Load environment variables
-load_dotenv()
+if getattr(sys, 'frozen', False):
+    # Running in PyInstaller bundle - try executable dir first, then source dir
+    dotenv_paths = [
+        os.path.join(os.path.dirname(sys.executable), '.env'),
+        os.path.join(os.path.dirname(__file__), '.env')
+    ]
+    for path in dotenv_paths:
+        if os.path.exists(path):
+            load_dotenv(path)
+            break
+else:
+    # Running in development
+    load_dotenv()
 
 # Configure logging
 import os
@@ -33,9 +45,12 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Configuration - Read from environment variables
-BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
+BACKEND_URL = os.getenv("BACKEND_URL")
 API_PREFIX = os.getenv("API_PREFIX", "/api/v1")
 CONFIG_FILE = os.getenv("CONFIG_FILE", "device_config.json")
+
+if not BACKEND_URL:
+    raise ValueError("BACKEND_URL environment variable is required")
 
 def load_config():
     """Load device configuration if it exists"""

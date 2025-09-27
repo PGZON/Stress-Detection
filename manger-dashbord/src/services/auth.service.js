@@ -1,5 +1,5 @@
 import { jwtDecode } from 'jwt-decode';
-import axios from 'axios';
+import apiClient from './api';
 
 const AuthService = {
   login: async (username, password) => {
@@ -10,7 +10,7 @@ const AuthService = {
       formData.append('password', password);
 
       // Send as form-urlencoded data (required by OAuth2 in FastAPI)
-      const response = await axios.post('http://localhost:8000/api/v1/auth/login', formData, {
+      const response = await apiClient.post('/auth/login', formData, {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded'
         }

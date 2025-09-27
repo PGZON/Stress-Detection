@@ -95,7 +95,19 @@ def get_emotion_stress_map():
     return EMOTION_STRESS_MAP
 
 # Load environment variables
-load_dotenv()
+if getattr(sys, 'frozen', False):
+    # Running in PyInstaller bundle - try executable dir first, then source dir
+    dotenv_paths = [
+        os.path.join(os.path.dirname(sys.executable), '.env'),
+        os.path.join(os.path.dirname(__file__), '.env')
+    ]
+    for path in dotenv_paths:
+        if os.path.exists(path):
+            load_dotenv(path)
+            break
+else:
+    # Running in development
+    load_dotenv()
 
 class StressDetectionApp:
     def __init__(self, root):
@@ -110,8 +122,11 @@ class StressDetectionApp:
 
         # Configuration
         self.config_file = os.getenv("CONFIG_FILE", "device_config.json")
-        self.backend_url = os.getenv("BACKEND_URL", "http://localhost:8000")
+        self.backend_url = os.getenv("BACKEND_URL")
         self.api_prefix = os.getenv("API_PREFIX", "/api/v1")
+
+        if not self.backend_url:
+            raise ValueError("BACKEND_URL environment variable is required")
 
         # Session file - handle bundled environment
         if getattr(sys, '_MEIPASS', None):

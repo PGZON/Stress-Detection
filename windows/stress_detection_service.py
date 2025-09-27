@@ -18,7 +18,19 @@ import base64
 from dotenv import load_dotenv
 
 # Load environment variables
-load_dotenv()
+if getattr(sys, 'frozen', False):
+    # Running in PyInstaller bundle - try executable dir first, then source dir
+    dotenv_paths = [
+        os.path.join(os.path.dirname(sys.executable), '.env'),
+        os.path.join(os.path.dirname(__file__), '.env')
+    ]
+    for path in dotenv_paths:
+        if os.path.exists(path):
+            load_dotenv(path)
+            break
+else:
+    # Running in development
+    load_dotenv()
 
 # Create logs directory
 log_dir = os.path.join(os.path.dirname(__file__), 'logs')
@@ -26,8 +38,11 @@ os.makedirs(log_dir, exist_ok=True)
 
 # Configuration - Read from environment variables
 CONFIG_FILE = os.getenv("CONFIG_FILE", "device_config.json")
-BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
+BACKEND_URL = os.getenv("BACKEND_URL")
 API_PREFIX = os.getenv("API_PREFIX", "/api/v1")
+
+if not BACKEND_URL:
+    raise ValueError("BACKEND_URL environment variable is required")
 CAPTURE_INTERVAL_SECONDS = int(os.getenv("CAPTURE_INTERVAL_SECONDS", "10"))
 
 class StressDetectionService(win32serviceutil.ServiceFramework):
