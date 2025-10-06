@@ -12,6 +12,14 @@ This is the backend API for the StressSense stress detection system. It provides
 - Commands queue for device control
 - MongoDB data storage
 
+## System Architecture
+
+### Simple Architecture Overview
+![Simple Architecture](../frontend/public/Simpl-arch.png)
+
+### Detailed System Architecture
+![System Architecture](../frontend/public/System-arch.svg)
+
 ## Prerequisites
 
 - Python 3.8+

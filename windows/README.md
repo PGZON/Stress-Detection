@@ -13,6 +13,14 @@ This is a Windows desktop application for employee stress level detection. The a
 - **Professional Installer**: NSIS-based Windows installer package (~420 MB)
 - **Optimized Size**: Reduced from 1.2 GB to 420 MB through dependency exclusion and build optimization
 
+## System Architecture
+
+### Simple Architecture Overview
+![Simple Architecture](../frontend/public/Simpl-arch.png)
+
+### Detailed System Architecture
+![System Architecture](../frontend/public/System-arch.svg)
+
 ## Installation
 
 ### Option 1: Using the Installer (Recommended)

@@ -14,6 +14,14 @@ A secure FastAPI backend with MongoDB integration, authentication, and analytics
 ### 3. Windows Background Agent
 A silent background application for Windows that periodically captures and analyzes stress levels.
 
+## System Architecture
+
+### Simple Architecture Overview
+![Simple Architecture](frontend/public/Simpl-arch.png)
+
+### Detailed System Architecture
+![System Architecture](frontend/public/System-arch.svg)
+
 ## Features
 
 - Real-time facial expression analysis
