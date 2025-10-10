@@ -1,4 +1,4 @@
-# StressSense - Real-Time Stress Detection System
+# StressSense - Real-Time Stress Detection System 
 
 
 StressSense is a comprehensive stress detection and management platform that uses facial expression analysis to predict stress levels in real-time. It includes a web application interface and a background Windows agent for continuous monitoring.
